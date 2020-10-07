@@ -24,3 +24,9 @@ pub enum BLispExpr {
     Function(fn(BLispExpr) -> BLispExpr),
     SExp(Box<BLispExpr>, Box<BLispExpr>),
 }
+
+impl BLispExpr {
+    pub fn is_disallowed_symbol_char(character: char) -> bool {
+        "()[]{}\\/\"\'#".contains(character)
+    }
+}
