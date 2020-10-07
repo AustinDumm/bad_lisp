@@ -34,7 +34,7 @@ impl BLispToken {
 }
 
 #[derive(Debug, PartialEq)]
-enum BLispBrace {
+pub enum BLispBrace {
     Parenthesis,
     SquareBrack,
     CurlyBrack,
@@ -82,10 +82,9 @@ pub fn lex(raw_string: String) -> Vec<BLispToken> {
                 '"' => {
                     lex_string_literal(&mut char_iterator)
                 },
-                character => {
+                _ => {
                     lex_symbol(&mut char_iterator)
                 },
-                _ => panic!("Unhandled character: {}", character),
             }
         )
     }
