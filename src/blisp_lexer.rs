@@ -56,10 +56,14 @@ pub fn lex(raw_string: String) -> Vec<BLispToken> {
     let char_iterator = raw_string.chars();
     let mut char_iterator = char_iterator.peekable();
     let mut token_list: Vec<BLispToken> = Vec::new();
+    println!("parsing: {}", raw_string);
     while let Some(character) = char_iterator.peek() {
         token_list.push (
             match character {
-                character if character.is_whitespace() => continue,
+                character if character.is_whitespace() => {
+                    char_iterator.next();
+                    continue;
+                },
                 character if BLispToken::is_delimiter(character) => {
                     lex_delimiter(&mut char_iterator)
                 },
@@ -88,6 +92,7 @@ pub fn lex(raw_string: String) -> Vec<BLispToken> {
             }
         )
     }
+    println!("done with: {}", raw_string);
 
     token_list
 }
@@ -262,10 +267,14 @@ where I: Iterator<Item = char> {
 fn lex_symbol<I>(iterator: &mut Peekable<I>) -> BLispToken
 where I: Iterator<Item = char> {
     let mut symbol = "".to_string();
-    while let Some(character) = iterator.next() {
+    while let Some(character) = iterator.peek() {
         match character {
-            character if BLispExpr::is_disallowed_symbol_char(character) => panic!("Unexpected character in symbol: {}", character),
-            character => symbol.push(character),
+            character if BLispExpr::is_disallowed_symbol_char(*character) => panic!("Unexpected character in symbol: {}", character),
+            character if BLispToken::is_token_interruptor(character) => break,
+            character => {
+                symbol.push(*character);
+                iterator.next();
+            },
         }
     }
 
