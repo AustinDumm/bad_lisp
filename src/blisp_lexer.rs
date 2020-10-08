@@ -2,6 +2,7 @@ use crate::blisp_expr::BLispExpr;
 
 use std::iter::Peekable;
 use std::convert::TryFrom;
+use std::collections::VecDeque;
 
 #[derive(Debug, PartialEq)]
 pub enum BLispToken {
@@ -52,13 +53,13 @@ impl BLispBrace {
 }
 
 
-pub fn lex(raw_string: String) -> Vec<BLispToken> {
+pub fn lex(raw_string: String) -> VecDeque<BLispToken> {
     let char_iterator = raw_string.chars();
     let mut char_iterator = char_iterator.peekable();
-    let mut token_list: Vec<BLispToken> = Vec::new();
+    let mut token_list: VecDeque<BLispToken> = VecDeque::new();
     println!("parsing: {}", raw_string);
     while let Some(character) = char_iterator.peek() {
-        token_list.push (
+        token_list.push_back (
             match character {
                 character if character.is_whitespace() => {
                     char_iterator.next();

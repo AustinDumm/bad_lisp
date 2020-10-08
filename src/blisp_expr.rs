@@ -29,4 +29,9 @@ impl BLispExpr {
     pub fn is_disallowed_symbol_char(character: char) -> bool {
         "()[]{}\\/\"\'#".contains(character)
     }
+
+    pub fn cons_sexp(first: BLispExpr, rest: BLispExpr) -> BLispExpr {
+        BLispExpr::SExp(Box::new(first),
+                        Box::new(rest))
+    }
 }
