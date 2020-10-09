@@ -32,6 +32,13 @@ impl BLispToken {
     pub fn is_close_delimiter(character: &char) -> bool {
         return ")}]".contains(|c| c == *character)
     }
+
+    pub fn unwrap_expr(self) -> BLispExpr {
+        match self {
+            BLispToken::Expr(expr) => expr,
+            _ => panic!("Failed unwrap of BLispToken->BLispExpr"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]

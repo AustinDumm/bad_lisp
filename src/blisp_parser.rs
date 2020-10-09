@@ -7,49 +7,59 @@ use crate::blisp_expr::{
 
 use crate::blisp_lexer::{
     BLispToken,
-    BLispBrace,
 };
 
 pub fn parse(token_queue: &mut VecDeque<BLispToken>) -> BLispExpr {
-    match token_queue.pop_front() {
-        Some(BLispToken::OpenDelimiter(brace_type)) => parse_list(brace_type, token_queue),
-        Some(BLispToken::Expr(expr)) => expr,
-        Some(BLispToken::StringLiteral(string)) => parse_string_literal(string.iter()),
+    match token_queue.front() {
+        Some(BLispToken::OpenDelimiter(_)) => parse_list(token_queue),
+        Some(BLispToken::Expr(_)) => token_queue.pop_front().unwrap().unwrap_expr(),
+        Some(BLispToken::StringLiteral(_)) => parse_string_literal(token_queue),
         _ => panic!("Unexpected token found while parsing"),
     }
 }
 
-pub fn parse_list(brace_type: BLispBrace, queue: &mut VecDeque<BLispToken>) -> BLispExpr {
-    let contents = parse_list_contents(queue);
-    if let Some(BLispToken::CloseDelimiter(close_brace)) = queue.pop_front() {
-        if close_brace == brace_type {
-            return contents
+pub fn parse_list(queue: &mut VecDeque<BLispToken>) -> BLispExpr {
+    match queue.pop_front() {
+        Some(BLispToken::OpenDelimiter(open_brace)) => {
+            let contents = parse_list_contents(queue);
+
+            match queue.pop_front() {
+                Some(BLispToken::CloseDelimiter(close_brace)) => {
+                    if close_brace == open_brace {
+                        return contents
+                    } else {
+                        panic!("Mismatched brace types")
+                    }
+                },
+                _ => panic!("Unexpected closing delimiter to list")
+            }
         }
-        panic!("Mismatched brace types");
+        _ => panic!("Unexpected opening delimiter to list")
     }
-    panic!("Unexpected end to parsing list");
 }
 
 pub fn parse_list_contents(queue: &mut VecDeque<BLispToken>) -> BLispExpr {
-    match queue.pop_front() {
-        Some(BLispToken::SExpDot) => parse(queue),
-        Some(BLispToken::OpenDelimiter(brace_type)) => BLispExpr::cons_sexp(parse_list(brace_type, queue),
-                                                                            parse_list_contents(queue)),
-        Some(BLispToken::CloseDelimiter(brace_type)) => { queue.push_front(BLispToken::CloseDelimiter(brace_type)); BLispExpr::Nil },
-        Some(BLispToken::Expr(expr)) => BLispExpr::cons_sexp(expr,
-                                                             parse_list_contents(queue)),
-        Some(BLispToken::StringLiteral(string)) => BLispExpr::cons_sexp(parse_string_literal(string.iter()),
-                                                                        parse_list_contents(queue)),
-        None => panic!("Unexpected end to token stream in list")
+    match queue.front() {
+        Some(BLispToken::CloseDelimiter(_)) => BLispExpr::Nil,
+        Some(BLispToken::SExpDot) => { queue.pop_front(); parse(queue) },
+        _ => BLispExpr::cons_sexp(parse(queue),
+                                  parse_list_contents(queue)),
     }
 }
     
-pub fn parse_string_literal<'a, I>(mut char_iter: I) -> BLispExpr
-where I: Iterator<Item = &'a char> {
-    match char_iter.next() {
-        Some(character) => BLispExpr::cons_sexp(BLispExpr::Char(*character),
-                                                parse_string_literal(char_iter)),
-        None => BLispExpr::Nil,
+pub fn parse_string_literal(queue: &mut VecDeque<BLispToken>) -> BLispExpr {
+    fn parse_char_iter<'a, I>(mut char_iter: I) -> BLispExpr
+    where I: Iterator<Item = &'a char> {
+        match char_iter.next() {
+            Some(character) => BLispExpr::cons_sexp(BLispExpr::Char(*character),
+                                                    parse_char_iter(char_iter)),
+            None => BLispExpr::Nil,
+        }
+    }
+
+    match queue.pop_front() {
+        Some(BLispToken::StringLiteral(char_list)) => parse_char_iter(char_list.iter()),
+        _ => panic!("Unexpected token found when parsing string literal")
     }
 }
 

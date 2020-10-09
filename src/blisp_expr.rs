@@ -13,7 +13,7 @@ impl BLispEnv {
 }
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BLispExpr {
     Nil,
     Bool(bool),
