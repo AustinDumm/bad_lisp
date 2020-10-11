@@ -64,7 +64,6 @@ pub fn lex(raw_string: String) -> VecDeque<BLispToken> {
     let char_iterator = raw_string.chars();
     let mut char_iterator = char_iterator.peekable();
     let mut token_list: VecDeque<BLispToken> = VecDeque::new();
-    println!("parsing: {}", raw_string);
     while let Some(character) = char_iterator.peek() {
         token_list.push_back (
             match character {
@@ -100,7 +99,6 @@ pub fn lex(raw_string: String) -> VecDeque<BLispToken> {
             }
         )
     }
-    println!("done with: {}", raw_string);
 
     token_list
 }
