@@ -2,13 +2,21 @@ use std::collections::HashMap;
 
 type BLispEnvMap = HashMap<String, BLispExpr>;
 
-struct BLispEnv {
+pub struct BLispEnv {
     map: BLispEnvMap,
 }
 
 impl BLispEnv {
     pub fn new() -> BLispEnv {
         BLispEnv { map: BLispEnvMap::new() }
+    }
+
+    pub fn insert(&mut self, key: String, value: BLispExpr) {
+        self.map.insert(key, value);
+    }
+
+    pub fn get(&self, key: &String) -> Option<&BLispExpr> {
+        self.map.get(key)
     }
 }
 
@@ -23,6 +31,12 @@ pub enum BLispExpr {
     Symbol(String),
     Function(fn(BLispExpr) -> BLispExpr),
     SExp(Box<BLispExpr>, Box<BLispExpr>),
+}
+
+impl std::fmt::Display for BLispExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl BLispExpr {
