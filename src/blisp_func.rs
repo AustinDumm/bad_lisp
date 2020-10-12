@@ -17,6 +17,31 @@ fn cons(args: BLispExpr) -> BLispExpr {
     panic!("cons must take exactly two arguments");
 }
 
+fn list(args: BLispExpr) -> BLispExpr {
+    match args {
+        BLispExpr::SExp(_, _) => return args,
+        _ => panic!("Misformed argument list given to list"),
+    }
+}
+
+
+fn first(args: BLispExpr) -> BLispExpr {
+    if let BLispExpr::SExp(arg, _) = args {
+        if let BLispExpr::SExp(first, _) = *arg {
+            return *first
+        }
+    }
+    panic!("first must take list argument");
+}
+
+fn rest(args: BLispExpr) -> BLispExpr {
+    if let BLispExpr::SExp(arg, _) = args {
+        if let BLispExpr::SExp(_, rest) = *arg {
+            return *rest
+        }
+    }
+    panic!("rest must take list argument");
+}
 
 //=============== Numerical Operations ===============
 fn add(args: BLispExpr) -> BLispExpr {
@@ -116,6 +141,10 @@ pub fn default_env() -> BLispEnv {
     env.insert("*".to_string(), BLispExpr::Function(mul));
     env.insert("/".to_string(), BLispExpr::Function(int_div));
     env.insert("//".to_string(), BLispExpr::Function(div));
+
+    env.insert("first".to_string(), BLispExpr::Function(first));
+    env.insert("rest".to_string(), BLispExpr::Function(rest));
+    env.insert("list".to_string(), BLispExpr::Function(list));
     env.insert("cons".to_string(), BLispExpr::Function(cons));
 
     env
