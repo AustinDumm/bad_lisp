@@ -44,6 +44,28 @@ fn rest(args: BLispExpr) -> BLispExpr {
 }
 
 //=============== Numerical Operations ===============
+fn incr(args: BLispExpr) -> BLispExpr {
+    if let BLispExpr::SExp(first, rest) = args {
+        match (*first, *rest) {
+            (BLispExpr::Number(num), BLispExpr::Nil) => return BLispExpr::Number(num + 1),
+            (BLispExpr::Float(float), BLispExpr::Nil) => return BLispExpr::Float(float + 1.0),
+            (_, _) => panic!("incr only takes a single numerical argument")
+        }
+    }
+    panic!("Malformed argument list to incr")
+}
+
+fn decr(args: BLispExpr) -> BLispExpr {
+    if let BLispExpr::SExp(first, rest) = args {
+        match (*first, *rest) {
+            (BLispExpr::Number(num), BLispExpr::Nil) => return BLispExpr::Number(num - 1),
+            (BLispExpr::Float(float), BLispExpr::Nil) => return BLispExpr::Float(float - 1.0),
+            (_, _) => panic!("incr only takes a single numerical argument")
+        }
+    }
+    panic!("Malformed argument list to incr")
+}
+
 fn add(args: BLispExpr) -> BLispExpr {
     if let BLispExpr::SExp(first, rest) = args {
         if let BLispExpr::SExp(second, rest) = *rest {
@@ -136,6 +158,10 @@ fn div(args: BLispExpr) -> BLispExpr {
 //=============== Default Environment ===============
 pub fn default_env() -> BLispEnv {
     let mut env = BLispEnv::new();
+
+    env.insert("incr".to_string(), BLispExpr::Function(incr));
+    env.insert("decr".to_string(), BLispExpr::Function(decr));
+
     env.insert("+".to_string(), BLispExpr::Function(add));
     env.insert("-".to_string(), BLispExpr::Function(sub));
     env.insert("*".to_string(), BLispExpr::Function(mul));
@@ -146,6 +172,19 @@ pub fn default_env() -> BLispEnv {
     env.insert("rest".to_string(), BLispExpr::Function(rest));
     env.insert("list".to_string(), BLispExpr::Function(list));
     env.insert("cons".to_string(), BLispExpr::Function(cons));
+
+    env
+}
+
+pub fn minimal_env() -> BLispEnv {
+    let mut env = BLispEnv::new();
+    
+    env.insert("incr".to_string(), BLispExpr::Function(incr));
+    env.insert("decr".to_string(), BLispExpr::Function(decr));
+
+    env.insert("cons".to_string(), BLispExpr::Function(cons));
+    env.insert("first".to_string(), BLispExpr::Function(first));
+    env.insert("rest".to_string(), BLispExpr::Function(rest));
 
     env
 }
