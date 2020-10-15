@@ -275,8 +275,8 @@ where I: Iterator<Item = char> {
     let mut symbol = "".to_string();
     while let Some(character) = iterator.peek() {
         match character {
-            character if BLispExpr::is_disallowed_symbol_char(*character) => panic!("Unexpected character in symbol: {}", character),
             character if BLispToken::is_token_interruptor(character) => break,
+            character if BLispExpr::is_disallowed_symbol_char(*character) => panic!("Unexpected character in symbol: {}", character),
             character => {
                 symbol.push(*character);
                 iterator.next();

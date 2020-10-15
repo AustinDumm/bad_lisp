@@ -21,6 +21,6 @@ fn main() {
             break;
         }
 
-        println!("{}", blisp_eval::evaluate(blisp_parser::parse(&mut blisp_lexer::lex(line)), &blisp_func::default_env()));
+        println!("{}", blisp_eval::evaluate(blisp_parser::parse(&mut blisp_lexer::lex(line)), std::rc::Rc::new(blisp_func::default_env())));
     }
 }

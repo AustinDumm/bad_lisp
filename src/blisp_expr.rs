@@ -1,14 +1,20 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 type BLispEnvMap = HashMap<String, BLispExpr>;
 
 pub struct BLispEnv {
     map: BLispEnvMap,
+    parent: Option<Rc<BLispEnv>>,
 }
 
 impl BLispEnv {
     pub fn new() -> BLispEnv {
-        BLispEnv { map: BLispEnvMap::new() }
+        BLispEnv { map: BLispEnvMap::new(), parent: None }
+    }
+
+    pub fn extend(parent: Rc<Self>) -> BLispEnv {
+        BLispEnv { map: BLispEnvMap::new(), parent: Some(parent) }
     }
 
     pub fn insert(&mut self, key: String, value: BLispExpr) {
@@ -16,7 +22,10 @@ impl BLispEnv {
     }
 
     pub fn get(&self, key: &String) -> Option<&BLispExpr> {
-        self.map.get(key)
+        match (self.map.get(key), &self.parent) {
+            (None, Some(parent)) => parent.get(key),
+            (result, _) => result,
+        }
     }
 }
 
@@ -29,7 +38,8 @@ pub enum BLispExpr {
     Float(f64),
     Char(char),
     Symbol(String),
-    Function(fn(BLispExpr) -> BLispExpr),
+    SpecialForm(fn(BLispExpr, Rc<BLispEnv>) -> BLispExpr),
+    Function(fn(BLispExpr, Rc<BLispEnv>) -> BLispExpr),
     SExp(Box<BLispExpr>, Box<BLispExpr>),
 }
 

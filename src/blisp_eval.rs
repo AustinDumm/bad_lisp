@@ -1,30 +1,38 @@
 
+use std::rc::Rc;
+
 use crate::blisp_expr::{
     BLispExpr,
     BLispEnv,
 };
 
-pub fn evaluate(expr: BLispExpr, env: &BLispEnv) -> BLispExpr {
+pub fn evaluate(expr: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
     match expr {
-        BLispExpr::SExp(_, _) => {
-            if let BLispExpr::SExp(first, rest) = evaluate_list_items(expr, env) {
-                match *first {
-                    BLispExpr::Function(fn_ptr) => return fn_ptr(*rest),
-                    expr => panic!("Unhandled list application: {}", expr),
-                }
+        BLispExpr::SExp(first, rest) => {
+            let first = evaluate(*first, env.clone());
+            let rest = *rest;
+            match (first, rest) {
+                (BLispExpr::Function(fn_ptr), rest) => {
+                    let rest = evaluate_list_items(rest, env.clone());
+                    return fn_ptr(rest, env);
+                },
+                (BLispExpr::SpecialForm(fn_ptr), rest) => {
+                    return fn_ptr(rest, env);
+                },
+                (_, _) => {
+                    panic!("Unapplicable first element in list");
+                },
             }
-
-            panic!("Unapplicable first element in list");
         },
         BLispExpr::Symbol(string) => env.get(&string).expect(&format!("Unbound symbol evaluated: {}", string)).clone(),
         expr => expr
     }
 }
 
-fn evaluate_list_items(expr: BLispExpr, env: &BLispEnv) -> BLispExpr {
+fn evaluate_list_items(expr: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
     if let BLispExpr::SExp(first, rest) = expr {
-        let eval_first = evaluate(*first, env);
-        let eval_rest = evaluate_list_items(*rest, env);
+        let eval_first = evaluate(*first, env.clone());
+        let eval_rest = evaluate_list_items(*rest, env.clone());
 
         return BLispExpr::cons_sexp(eval_first, eval_rest);
     } else if expr == BLispExpr::Nil {
@@ -62,7 +70,7 @@ mod blisp_eval_tests {
                         )
                     )
                 ),
-                &default_env()
+                Rc::new(default_env())
             ),
             BLispExpr::cons_sexp(
                 BLispExpr::Number(5),
@@ -85,7 +93,7 @@ mod blisp_eval_tests {
                         )
                     )
                 ),
-                &default_env()
+                Rc::new(default_env())
             ),
             BLispExpr::Number(11)
         );
