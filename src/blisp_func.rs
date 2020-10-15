@@ -197,21 +197,21 @@ fn if_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
     panic!("if requires predicate and two more arguments")
 }
 
-fn bind_single_binding(binding: BLispExpr, env: &mut BLispEnv) {
+fn bind_single_binding(binding: BLispExpr, eval_env: Rc<BLispEnv>, env: &mut BLispEnv) {
     if let BLispExpr::SExp(symbol, rest) = binding {
         if let BLispExpr::SExp(value, rest) = *rest {
             match (*symbol, *value, *rest) {
-                (BLispExpr::Symbol(name), value, BLispExpr::Nil) => { env.insert(name, value); return }
+                (BLispExpr::Symbol(name), value, BLispExpr::Nil) => { let value = evaluate(value, eval_env); env.insert(name, value); return }
                 (_, _, _) => panic!("Binding must be two element list with first element being a symbol"),
             }
         }
     }
 }
 
-fn bind_from_binding_list(mut binding_list: BLispExpr, env: &mut BLispEnv) {
+fn bind_from_binding_list(mut binding_list: BLispExpr, eval_env: Rc<BLispEnv>, env: &mut BLispEnv) {
     while binding_list != BLispExpr::Nil {
         if let BLispExpr::SExp(binding, rest) = binding_list {
-            bind_single_binding(*binding, env);
+            bind_single_binding(*binding, eval_env.clone(), env);
             binding_list = *rest;
         }
     }
@@ -221,8 +221,8 @@ fn let_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
     if let BLispExpr::SExp(binding_list, rest) = args {
         if let BLispExpr::SExp(expr, rest) = *rest {
             if *rest == BLispExpr::Nil {
-                let mut child_env = BLispEnv::extend(env);
-                bind_from_binding_list(*binding_list, &mut child_env);
+                let mut child_env = BLispEnv::extend(env.clone());
+                bind_from_binding_list(*binding_list, env.clone(), &mut child_env);
                 return evaluate(*expr, Rc::new(child_env))
             }
         }
