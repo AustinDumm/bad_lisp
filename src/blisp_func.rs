@@ -1,5 +1,6 @@
 
 use std::rc::Rc;
+use std::convert::TryInto;
 
 use crate::blisp_expr::{
     BLispExpr,
@@ -19,6 +20,21 @@ where F: Fn(BLispExpr, BLispExpr) -> BLispExpr {
         }
     }
     panic!("Predicates must take 2 arguments")
+}
+
+fn exit(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+    if let BLispExpr::SExp(first, rest) = args {
+        if *rest == BLispExpr::Nil {
+            match *first {
+                BLispExpr::Number(value) => std::process::exit(value.try_into().expect("Exit code given too large to fit into 32 bits")),
+                _ => panic!("Invalid code given to exit"),
+            }
+        }
+    } else if args == BLispExpr::Nil {
+        std::process::exit(0);
+    }
+
+    panic!("Malformed arguments list given to exit");
 }
 
 //=============== List manipulation ===============
@@ -487,6 +503,19 @@ fn let_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
     panic!("let requires list of bindings and single expr to execute with bindings")
 }
 
+//=============== Lambda Creation ===============
+fn lambda(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+    if let BLispExpr::SExp(binding_list, rest) = args {
+        if let BLispExpr::SExp(eval_expr, rest) = *rest {
+            if *rest == BLispExpr::Nil {
+                return BLispExpr::Lambda(binding_list, eval_expr, env)
+            }
+        }
+    }
+
+    panic!("Malformed arguments given to lambda")
+}
+
 //=============== Default Environment ===============
 pub fn default_env() -> BLispEnv {
     let mut env = BLispEnv::new();
@@ -535,6 +564,10 @@ pub fn default_env() -> BLispEnv {
 
     env.insert("if".to_string(), BLispExpr::SpecialForm(if_impl));
     env.insert("let".to_string(), BLispExpr::SpecialForm(let_impl));
+
+    env.insert("lambda".to_string(), BLispExpr::SpecialForm(lambda));
+
+    env.insert("exit".to_string(), BLispExpr::Function(exit));
 
     env
 }

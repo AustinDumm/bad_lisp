@@ -19,6 +19,10 @@ pub fn evaluate(expr: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
                 (BLispExpr::SpecialForm(fn_ptr), rest) => {
                     return fn_ptr(rest, env);
                 },
+                (BLispExpr::Lambda(arg_list, expr, env), rest) => {
+                    let rest = evaluate_list_items(rest, env.clone());
+                    return evaluate(*expr, Rc::new(BLispEnv::bind(env, *arg_list, rest)));
+                },
                 (_, _) => {
                     panic!("Unapplicable first element in list");
                 },

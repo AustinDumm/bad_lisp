@@ -17,9 +17,6 @@ fn main() {
         
         let mut line = String::new();
         io::stdin().read_line(&mut line).expect("Failure reading line");
-        if line.contains("--quit") {
-            break;
-        }
 
         println!("{}", blisp_eval::evaluate(blisp_parser::parse(&mut blisp_lexer::lex(line)), std::rc::Rc::new(blisp_func::default_env())));
     }

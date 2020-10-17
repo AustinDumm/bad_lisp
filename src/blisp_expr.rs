@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 type BLispEnvMap = HashMap<String, BLispExpr>;
 
+#[derive(Debug, PartialEq)]
 pub struct BLispEnv {
     map: BLispEnvMap,
     parent: Option<Rc<BLispEnv>>,
@@ -27,6 +28,34 @@ impl BLispEnv {
             (result, _) => result,
         }
     }
+
+    pub fn bind(parent: Rc<Self>, mut args_list: BLispExpr, mut args: BLispExpr) -> BLispEnv {
+        let mut new_env = BLispEnv::extend(parent);
+
+        loop {
+            match (args_list, args) {
+                (BLispExpr::Nil, BLispExpr::Nil) => break,
+                (BLispExpr::Nil, _) => panic!("Too many arguments to bind"),
+                (_, BLispExpr::Nil) => panic!("Too few arguments to bind"),
+                (names, values) => {
+                    if let (BLispExpr::SExp(name, name_rest), BLispExpr::SExp(value, value_rest)) = (names, values) {
+                        match (*name, *value) {
+                            (BLispExpr::Symbol(name), value) => {
+                                args_list = *name_rest;
+                                args = *value_rest;
+                                new_env.insert(name, value)
+                            },
+                            (_, _) => panic!("Argument names must be of type Symbol"),
+                        }
+                    } else {
+                        panic!("Malformed argument binding given bind");
+                    }
+                }
+            }
+        }
+
+        new_env
+    }
 }
 
 
@@ -40,6 +69,7 @@ pub enum BLispExpr {
     Symbol(String),
     SpecialForm(fn(BLispExpr, Rc<BLispEnv>) -> BLispExpr),
     Function(fn(BLispExpr, Rc<BLispEnv>) -> BLispExpr),
+    Lambda(Box<BLispExpr>, Box<BLispExpr>, Rc<BLispEnv>),
     SExp(Box<BLispExpr>, Box<BLispExpr>),
 }
 
