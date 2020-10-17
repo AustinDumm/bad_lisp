@@ -1,0 +1,6 @@
+(let
+    ((factorial (lambda (factorial num)
+                        (if (= num 1)
+                            1
+                            (* num (factorial factorial (- num 1)))))))
+    (factorial factorial 6))
