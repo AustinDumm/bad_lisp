@@ -45,6 +45,18 @@ fn exit(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     panic!("Malformed arguments list given to exit");
 }
 
+fn seq(mut args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+    while let BLispExpr::SExp(first, second) = args {
+        if *second == BLispExpr::Nil {
+            return *first;
+        } else {
+            args = *second;
+        }
+    }
+    
+    panic!("Malformed list given to sequence");
+}
+
 //=============== List manipulation ===============
 fn cons(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     if let BLispExpr::SExp(first, rest) = args {
@@ -527,14 +539,21 @@ fn lambda(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
 //=============== Input/Output ===============
 fn print_std(mut args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     let mut output = "".to_string();
-    while let BLispExpr::SExp(first, rest) = args {
-        match (*first, *rest) {
-            (BLispExpr::Char(character), rest) => { output += &String::from(character); args = rest; },
-            (_, _) => panic!("print must be passed list of characters"),
+    if let BLispExpr::SExp(first, rest) = args {
+        if *rest == BLispExpr::Nil {
+            args = *first;
+            while let BLispExpr::SExp(first, rest) = args {
+                match (*first, *rest) {
+                    (BLispExpr::Char(character), rest) => { output += &String::from(character); args = rest;  },
+                    (first, _) => panic!("print must be passed list of characters: {}", first),
+                }
+            }
+
+            println!("{}", output);
+            return BLispExpr::Bool(true);
         }
     }
-
-    BLispExpr::Bool(true)
+    panic!("Malformed list given to print")
 }
 
 fn read_std(_args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
@@ -566,6 +585,17 @@ fn def_macro(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
     }
 
     panic!("Malformed arguments given to macro")
+}
+
+fn eval(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+    if let BLispExpr::SExp(first, rest) = args {
+        match (*first, *rest) {
+            (first, BLispExpr::Nil) => evaluate(first, env),
+            (_, _) => panic!("eval must take single argument"),
+        }
+    } else {
+        panic!("Malformed list given to quote")
+    }
 }
 
 //=============== Default Environment ===============
@@ -616,9 +646,11 @@ pub fn default_env() -> BLispEnv {
 
     env.insert("if".to_string(), BLispExpr::SpecialForm(if_impl));
     env.insert("let".to_string(), BLispExpr::SpecialForm(let_impl));
+    env.insert("seq".to_string(), BLispExpr::Function(seq));
 
     env.insert("lambda".to_string(), BLispExpr::SpecialForm(lambda));
     env.insert("macro".to_string(), BLispExpr::SpecialForm(def_macro));
+    env.insert("eval".to_string(), BLispExpr::Function(eval));
 
     env.insert("exit".to_string(), BLispExpr::Function(exit));
 
