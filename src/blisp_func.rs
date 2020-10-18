@@ -1,8 +1,6 @@
 
-use std::io::{
-    self,
-};
-
+use std::io;
+use std::fs;
 
 use std::rc::Rc;
 use std::convert::TryInto;
@@ -15,7 +13,10 @@ use crate::blisp_expr::{
 use crate::blisp_lexer;
 
 use crate::blisp_eval::evaluate;
-use crate::blisp_parser::parse_string_literal;
+use crate::blisp_parser::{
+    self,
+    parse_string_literal,
+};
 
 //=============== Utilities ===============
 fn apply_predicate<F>(args: BLispExpr, func: F) -> BLispExpr 
@@ -55,6 +56,18 @@ fn seq(mut args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     }
     
     panic!("Malformed list given to sequence");
+}
+
+fn collect_string(mut string_expr: BLispExpr) -> String {
+    let mut output = "".to_string();
+    while let BLispExpr::SExp(first, rest) = string_expr {
+        match (*first, *rest) {
+            (BLispExpr::Char(character), rest) => { output += &String::from(character); string_expr = rest; },
+            (_, _) => panic!("Expected list of characters"),
+        }
+    }
+
+    output
 }
 
 //=============== List manipulation ===============
@@ -523,6 +536,34 @@ fn let_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
     panic!("let requires list of bindings and single expr to execute with bindings")
 }
 
+fn dyn_let(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+     if let BLispExpr::SExp(binding_expr, rest) = args {
+        if let BLispExpr::SExp(expr, rest) = *rest {
+            if *rest == BLispExpr::Nil {
+                let binding_list = evaluate(*binding_expr, env.clone());
+                let mut child_env = BLispEnv::extend(env.clone());
+                bind_from_binding_list(binding_list, env.clone(), &mut child_env);
+                return evaluate(*expr, Rc::new(child_env))
+            }
+        }
+    }
+
+    panic!("import requires list of bindings and single expr to execute with bindings")
+}
+
+fn load(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+    if let BLispExpr::SExp(file_name, rest) = args {
+        match (*file_name, *rest) {
+            (file_name, BLispExpr::Nil) => {
+                let loaded = fs::read_to_string(collect_string(file_name)).expect("Failed to open file").parse().expect("Failed to read file");
+                return evaluate(blisp_parser::parse(&mut blisp_lexer::lex(loaded)), env);
+            },
+            (_, _) => panic!("Load must take single filename argument"),
+        }
+    }
+    panic!("Malformed list passed to load");
+}
+
 //=============== Lambda Creation ===============
 fn lambda(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
     if let BLispExpr::SExp(binding_list, rest) = args {
@@ -537,19 +578,10 @@ fn lambda(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
 }
 
 //=============== Input/Output ===============
-fn print_std(mut args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
-    let mut output = "".to_string();
+fn print_std(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     if let BLispExpr::SExp(first, rest) = args {
         if *rest == BLispExpr::Nil {
-            args = *first;
-            while let BLispExpr::SExp(first, rest) = args {
-                match (*first, *rest) {
-                    (BLispExpr::Char(character), rest) => { output += &String::from(character); args = rest;  },
-                    (first, _) => panic!("print must be passed list of characters: {}", first),
-                }
-            }
-
-            println!("{}", output);
+            println!("{}", collect_string(*first));
             return BLispExpr::Bool(true);
         }
     }
@@ -646,7 +678,9 @@ pub fn default_env() -> BLispEnv {
 
     env.insert("if".to_string(), BLispExpr::SpecialForm(if_impl));
     env.insert("let".to_string(), BLispExpr::SpecialForm(let_impl));
+    env.insert("dyn-let".to_string(), BLispExpr::SpecialForm(dyn_let));
     env.insert("seq".to_string(), BLispExpr::Function(seq));
+    env.insert("load".to_string(), BLispExpr::Function(load));
 
     env.insert("lambda".to_string(), BLispExpr::SpecialForm(lambda));
     env.insert("macro".to_string(), BLispExpr::SpecialForm(def_macro));
