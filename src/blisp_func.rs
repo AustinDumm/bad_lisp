@@ -556,6 +556,18 @@ fn quote(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     }
 }
 
+fn def_macro(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+    if let BLispExpr::SExp(binding_list, rest) = args {
+        if let BLispExpr::SExp(eval_expr, rest) = *rest {
+            if *rest == BLispExpr::Nil {
+                return BLispExpr::Macro(binding_list, eval_expr, env)
+            }
+        }
+    }
+
+    panic!("Malformed arguments given to macro")
+}
+
 //=============== Default Environment ===============
 pub fn default_env() -> BLispEnv {
     let mut env = BLispEnv::new();
@@ -606,6 +618,7 @@ pub fn default_env() -> BLispEnv {
     env.insert("let".to_string(), BLispExpr::SpecialForm(let_impl));
 
     env.insert("lambda".to_string(), BLispExpr::SpecialForm(lambda));
+    env.insert("macro".to_string(), BLispExpr::SpecialForm(def_macro));
 
     env.insert("exit".to_string(), BLispExpr::Function(exit));
 
