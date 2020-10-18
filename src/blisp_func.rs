@@ -381,8 +381,10 @@ fn is_symbol(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
 fn is_applicable(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::SpecialForm(_), BLispExpr::Nil) => return BLispExpr::Bool(true),
-            (BLispExpr::Function(_), BLispExpr::Nil) => return BLispExpr::Bool(true),
+            (BLispExpr::SpecialForm(_), BLispExpr::Nil) |
+            (BLispExpr::Function(_), BLispExpr::Nil) |
+            (BLispExpr::Lambda(_, _, _), BLispExpr::Nil) |
+            (BLispExpr::Macro(_, _, _), BLispExpr::Nil) => return BLispExpr::Bool(true),
             (_, BLispExpr::Nil) => return BLispExpr::Bool(false),
             (_, _) => panic!("Too many arguments provided to Applicable check"),
         }
