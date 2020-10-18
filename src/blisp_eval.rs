@@ -23,6 +23,9 @@ pub fn evaluate(expr: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
                     let rest = evaluate_list_items(rest, env.clone());
                     return evaluate(*expr, Rc::new(BLispEnv::bind(local_env.clone(), *arg_list, rest)));
                 },
+                (BLispExpr::Macro(arg_list, expr, local_env), rest) => {
+                    return evaluate(*expr, Rc::new(BLispEnv::bind(local_env.clone(), *arg_list, rest)));
+                },
                 (_, _) => {
                     panic!("Unapplicable first element in list");
                 },

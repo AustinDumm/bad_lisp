@@ -1,4 +1,9 @@
 
+use std::io::{
+    self,
+};
+
+
 use std::rc::Rc;
 use std::convert::TryInto;
 
@@ -7,7 +12,10 @@ use crate::blisp_expr::{
     BLispEnv,
 };
 
+use crate::blisp_lexer;
+
 use crate::blisp_eval::evaluate;
+use crate::blisp_parser::parse_string_literal;
 
 //=============== Utilities ===============
 fn apply_predicate<F>(args: BLispExpr, func: F) -> BLispExpr 
@@ -516,6 +524,38 @@ fn lambda(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
     panic!("Malformed arguments given to lambda")
 }
 
+//=============== Input/Output ===============
+fn print_std(mut args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+    let mut output = "".to_string();
+    while let BLispExpr::SExp(first, rest) = args {
+        match (*first, *rest) {
+            (BLispExpr::Char(character), rest) => { output += &String::from(character); args = rest; },
+            (_, _) => panic!("print must be passed list of characters"),
+        }
+    }
+
+    BLispExpr::Bool(true)
+}
+
+fn read_std(_args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+    let mut buffer = String::new();
+    io::stdin().read_line(&mut buffer).expect("Failed to read from standard in");
+    buffer = format!("\"{}\"", buffer);
+    evaluate(parse_string_literal(&mut blisp_lexer::lex(buffer.chars().collect())), env.clone())
+}
+
+//=============== Macros ===============
+fn quote(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+    if let BLispExpr::SExp(first, rest) = args {
+        match (*first, *rest) {
+            (first, BLispExpr::Nil) => first,
+            (_, _) => panic!("quote must take single argument"),
+        }
+    } else {
+        panic!("Malformed list given to quote")
+    }
+}
+
 //=============== Default Environment ===============
 pub fn default_env() -> BLispEnv {
     let mut env = BLispEnv::new();
@@ -568,6 +608,11 @@ pub fn default_env() -> BLispEnv {
     env.insert("lambda".to_string(), BLispExpr::SpecialForm(lambda));
 
     env.insert("exit".to_string(), BLispExpr::Function(exit));
+
+    env.insert("print".to_string(), BLispExpr::Function(print_std));
+    env.insert("read".to_string(), BLispExpr::Function(read_std));
+
+    env.insert("quote".to_string(), BLispExpr::SpecialForm(quote));
 
     env
 }

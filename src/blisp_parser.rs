@@ -58,7 +58,7 @@ pub fn parse_string_literal(queue: &mut VecDeque<BLispToken>) -> BLispExpr {
     }
 
     match queue.pop_front() {
-        Some(BLispToken::StringLiteral(char_list)) => parse_char_iter(char_list.iter()),
+        Some(BLispToken::StringLiteral(char_list)) => BLispExpr::cons_sexp(BLispExpr::Function(|char_list, _| { char_list }), parse_char_iter(char_list.iter())),
         _ => panic!("Unexpected token found when parsing string literal")
     }
 }

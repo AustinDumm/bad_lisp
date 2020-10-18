@@ -70,6 +70,7 @@ pub enum BLispExpr {
     SpecialForm(fn(BLispExpr, Rc<BLispEnv>) -> BLispExpr),
     Function(fn(BLispExpr, Rc<BLispEnv>) -> BLispExpr),
     Lambda(Box<BLispExpr>, Box<BLispExpr>, Rc<BLispEnv>),
+    Macro(Box<BLispExpr>, Box<BLispExpr>, Rc<BLispEnv>),
     SExp(Box<BLispExpr>, Box<BLispExpr>),
 }
 
