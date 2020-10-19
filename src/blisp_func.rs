@@ -132,6 +132,30 @@ fn decr(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     panic!("Malformed argument list to incr")
 }
 
+fn abs(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+    if let BLispExpr::SExp(first, rest) = args {
+        match (*first, *rest) {
+            (BLispExpr::Number(num), BLispExpr::Nil) => BLispExpr::Number(num.abs()),
+            (BLispExpr::Float(float), BLispExpr::Nil) => BLispExpr::Float(float.abs()),
+            (_, _) => panic!("abs only takes a single numberical argument"),
+        }
+    } else {
+        panic!("Malformed argument list to abs")
+    }
+}
+
+fn sign(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+    if let BLispExpr::SExp(first, rest) = args {
+        match (*first, *rest) {
+            (BLispExpr::Number(num), BLispExpr::Nil) => BLispExpr::Number(num.signum()),
+            (BLispExpr::Float(float), BLispExpr::Nil) => BLispExpr::Float(float.signum()),
+            (_, _) => panic!("abs only takes a single numberical argument"),
+        }
+    } else {
+        panic!("Malformed argument list to abs")
+    }
+}
+
 fn add(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     if let BLispExpr::SExp(first, rest) = args {
         if let BLispExpr::SExp(second, rest) = *rest {
@@ -214,6 +238,21 @@ fn div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
                     (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Float(first as f64 / second),
                     (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Float(first / second),
                     (_, _) => panic!("Unexpected types to div"),
+                }
+            }
+        }
+    }
+
+    panic!("Add expects two arguments");
+}
+
+fn modulo(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+    if let BLispExpr::SExp(first, rest) = args {
+        if let BLispExpr::SExp(second, rest) = *rest {
+            if *rest == BLispExpr::Nil {
+                return match (*first, *second) {
+                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispExpr::Number(first % second),
+                    (_, _) => panic!("Unexpected types to modulo"),
                 }
             }
         }
@@ -638,12 +677,15 @@ pub fn default_env() -> BLispEnv {
 
     env.insert("incr".to_string(), BLispExpr::Function(incr));
     env.insert("decr".to_string(), BLispExpr::Function(decr));
+    env.insert("abs".to_string(), BLispExpr::Function(abs));
+    env.insert("sign".to_string(), BLispExpr::Function(sign));
 
     env.insert("+".to_string(), BLispExpr::Function(add));
     env.insert("-".to_string(), BLispExpr::Function(sub));
     env.insert("*".to_string(), BLispExpr::Function(mul));
     env.insert("/".to_string(), BLispExpr::Function(int_div));
     env.insert("//".to_string(), BLispExpr::Function(div));
+    env.insert("mod".to_string(), BLispExpr::Function(modulo));
 
     env.insert("bit_not".to_string(), BLispExpr::Function(b_not));
     env.insert("bit_and".to_string(), BLispExpr::Function(b_and));
