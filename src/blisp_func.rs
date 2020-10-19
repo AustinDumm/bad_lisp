@@ -159,7 +159,7 @@ fn sub(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
                     (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Float(first - second as f64),
                     (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Float(first as f64 - second),
                     (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Float(first - second),
-                    (_, _) => panic!("Unexpected types to add"),
+                    (_, _) => panic!("Unexpected types to sub"),
                 }
             }
         }
@@ -177,7 +177,7 @@ fn mul(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
                     (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Float(first * second as f64),
                     (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Float(first as f64 * second),
                     (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Float(first * second),
-                    (_, _) => panic!("Unexpected types to add"),
+                    (first, second) => panic!("Unexpected types to mul (* {} {})", first, second),
                 }
             }
         }
@@ -195,7 +195,7 @@ fn int_div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
                     (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Float(first / second as f64),
                     (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Float(first as f64 / second),
                     (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Float(first / second),
-                    (_, _) => panic!("Unexpected types to add"),
+                    (_, _) => panic!("Unexpected types to int div"),
                 }
             }
         }
@@ -213,7 +213,7 @@ fn div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
                     (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Float(first / second as f64),
                     (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Float(first as f64 / second),
                     (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Float(first / second),
-                    (_, _) => panic!("Unexpected types to add"),
+                    (_, _) => panic!("Unexpected types to div"),
                 }
             }
         }

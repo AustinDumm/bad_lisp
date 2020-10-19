@@ -1,0 +1,13 @@
+(list 
+    (quote (map ((lambda (x) (x x))
+                 (lambda (map*)
+                    (lambda (values func)
+                        (if (nil? (rest values))
+                            (cons (func (first values)) ())
+                            (cons (func (first values)) ((map* map*) (rest values) func))))))))
+    (quote (factorial ((lambda (x) (x x))
+                                (lambda (fact-gen)
+                                    (lambda (n)
+                                        (if (= n 1)
+                                            1
+                                            (* n ((fact-gen fact-gen) (- n 1))))))))))
