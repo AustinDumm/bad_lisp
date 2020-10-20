@@ -58,6 +58,10 @@ impl BLispEnv {
     }
 }
 
+pub enum BLispEvalResult {
+    Result(BLispExpr),
+    TailCall(BLispExpr, Rc<BLispEnv>),
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BLispExpr {
@@ -67,8 +71,8 @@ pub enum BLispExpr {
     Float(f64),
     Char(char),
     Symbol(String),
-    SpecialForm(fn(BLispExpr, Rc<BLispEnv>) -> BLispExpr),
-    Function(fn(BLispExpr, Rc<BLispEnv>) -> BLispExpr),
+    SpecialForm(fn(BLispExpr, Rc<BLispEnv>) -> BLispEvalResult),
+    Function(fn(BLispExpr, Rc<BLispEnv>) -> BLispEvalResult),
     Lambda(Box<BLispExpr>, Box<BLispExpr>, Rc<BLispEnv>),
     Macro(Box<BLispExpr>, Box<BLispExpr>, Rc<BLispEnv>),
     SExp(Box<BLispExpr>, Box<BLispExpr>),

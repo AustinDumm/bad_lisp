@@ -4,35 +4,48 @@ use std::rc::Rc;
 use crate::blisp_expr::{
     BLispExpr,
     BLispEnv,
+    BLispEvalResult,
 };
 
-pub fn evaluate(expr: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
-    match expr {
-        BLispExpr::SExp(first, rest) => {
-            let first = evaluate(*first, env.clone());
-            let rest = *rest;
-            match (first, rest) {
-                (BLispExpr::Function(fn_ptr), rest) => {
-                    let rest = evaluate_list_items(rest, env.clone());
-                    return fn_ptr(rest, env);
-                },
-                (BLispExpr::SpecialForm(fn_ptr), rest) => {
-                    return fn_ptr(rest, env);
-                },
-                (BLispExpr::Lambda(arg_list, expr, local_env), rest) => {
-                    let rest = evaluate_list_items(rest, env.clone());
-                    return evaluate(*expr, Rc::new(BLispEnv::bind(local_env.clone(), *arg_list, rest)));
-                },
-                (BLispExpr::Macro(arg_list, expr, local_env), rest) => {
-                    return evaluate(*expr, Rc::new(BLispEnv::bind(local_env.clone(), *arg_list, rest)));
-                },
-                (_, _) => {
-                    panic!("Unapplicable first element in list");
-                },
-            }
-        },
-        BLispExpr::Symbol(string) => env.get(&string).expect(&format!("Unbound symbol evaluated: {}", string)).clone(),
-        expr => expr
+pub fn evaluate(mut expr: BLispExpr, mut env: Rc<BLispEnv>) -> BLispExpr {
+    loop {
+        match expr {
+            BLispExpr::SExp(first, rest) => {
+                let first = evaluate(*first, env.clone());
+                let rest = *rest;
+                match (first, rest) {
+                    (BLispExpr::Function(fn_ptr), rest) => {
+                        let rest = evaluate_list_items(rest, env.clone());
+                        match fn_ptr(rest, env) {
+                            BLispEvalResult::Result(expr) => return expr,
+                            BLispEvalResult::TailCall(next_expr, next_env) => { expr = next_expr; env = next_env; continue; }
+                        }
+                    },
+                    (BLispExpr::SpecialForm(fn_ptr), rest) => {
+                        match fn_ptr(rest, env) {
+                            BLispEvalResult::Result(expr) => return expr,
+                            BLispEvalResult::TailCall(next_expr, next_env) => { expr = next_expr; env = next_env; continue; }
+                        }
+                    },
+                    (BLispExpr::Lambda(arg_list, next_expr, local_env), rest) => {
+                        let rest = evaluate_list_items(rest, env.clone());
+                        expr = *next_expr;
+                        env = Rc::new(BLispEnv::bind(local_env.clone(), *arg_list, rest));
+                        continue;
+                    },
+                    (BLispExpr::Macro(arg_list, next_expr, local_env), rest) => {
+                        expr = *next_expr;
+                        env = Rc::new(BLispEnv::bind(local_env.clone(), *arg_list, rest));
+                        continue
+                    },
+                    (_, _) => {
+                        panic!("Unapplicable first element in list");
+                    },
+                }
+            },
+            BLispExpr::Symbol(string) => return env.get(&string).expect(&format!("Unbound symbol evaluated: {}", string)).clone(),
+            expr => return expr
+        }
     }
 }
 

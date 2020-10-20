@@ -8,6 +8,7 @@ use std::convert::TryInto;
 use crate::blisp_expr::{
     BLispExpr,
     BLispEnv,
+    BLispEvalResult,
 };
 
 use crate::blisp_lexer;
@@ -19,8 +20,8 @@ use crate::blisp_parser::{
 };
 
 //=============== Utilities ===============
-fn apply_predicate<F>(args: BLispExpr, func: F) -> BLispExpr 
-where F: Fn(BLispExpr, BLispExpr) -> BLispExpr {
+fn apply_predicate<F>(args: BLispExpr, func: F) -> BLispEvalResult 
+where F: Fn(BLispExpr, BLispExpr) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         if let BLispExpr::SExp(second, rest) = *rest {
             if *rest == BLispExpr::Nil {
@@ -31,7 +32,7 @@ where F: Fn(BLispExpr, BLispExpr) -> BLispExpr {
     panic!("Predicates must take 2 arguments")
 }
 
-fn exit(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn exit(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         if *rest == BLispExpr::Nil {
             match *first {
@@ -46,10 +47,10 @@ fn exit(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     panic!("Malformed arguments list given to exit");
 }
 
-fn seq(mut args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn seq(mut args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     while let BLispExpr::SExp(first, second) = args {
         if *second == BLispExpr::Nil {
-            return *first;
+            return BLispEvalResult::Result(*first);
         } else {
             args = *second;
         }
@@ -71,11 +72,11 @@ fn collect_string(mut string_expr: BLispExpr) -> String {
 }
 
 //=============== List manipulation ===============
-fn cons(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn cons(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         if let BLispExpr::SExp(second, rest) = *rest {
             if *rest == BLispExpr::Nil {
-                return BLispExpr::SExp(first, second)
+                return BLispEvalResult::Result(BLispExpr::SExp(first, second))
             }
         }
     }
@@ -83,60 +84,60 @@ fn cons(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     panic!("cons must take exactly two arguments");
 }
 
-fn list(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn list(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     match args {
-        BLispExpr::SExp(_, _) => return args,
+        BLispExpr::SExp(_, _) => return BLispEvalResult::Result(args),
         _ => panic!("Misformed argument list given to list"),
     }
 }
 
 
-fn first(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn first(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(arg, _) = args {
         if let BLispExpr::SExp(first, _) = *arg {
-            return *first
+            return BLispEvalResult::Result(*first)
         }
     }
     panic!("first must take list argument");
 }
 
-fn rest(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn rest(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(arg, _) = args {
         if let BLispExpr::SExp(_, rest) = *arg {
-            return *rest
+            return BLispEvalResult::Result(*rest)
         }
     }
     panic!("rest must take list argument");
 }
 
 //=============== Numerical Operations ===============
-fn incr(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn incr(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Number(num), BLispExpr::Nil) => return BLispExpr::Number(num + 1),
-            (BLispExpr::Float(float), BLispExpr::Nil) => return BLispExpr::Float(float + 1.0),
+            (BLispExpr::Number(num), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Number(num + 1)),
+            (BLispExpr::Float(float), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Float(float + 1.0)),
             (_, _) => panic!("incr only takes a single numerical argument")
         }
     }
     panic!("Malformed argument list to incr")
 }
 
-fn decr(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn decr(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Number(num), BLispExpr::Nil) => return BLispExpr::Number(num - 1),
-            (BLispExpr::Float(float), BLispExpr::Nil) => return BLispExpr::Float(float - 1.0),
+            (BLispExpr::Number(num), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Number(num - 1)),
+            (BLispExpr::Float(float), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Float(float - 1.0)),
             (_, _) => panic!("incr only takes a single numerical argument")
         }
     }
     panic!("Malformed argument list to incr")
 }
 
-fn abs(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn abs(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Number(num), BLispExpr::Nil) => BLispExpr::Number(num.abs()),
-            (BLispExpr::Float(float), BLispExpr::Nil) => BLispExpr::Float(float.abs()),
+            (BLispExpr::Number(num), BLispExpr::Nil) => BLispEvalResult::Result(BLispExpr::Number(num.abs())),
+            (BLispExpr::Float(float), BLispExpr::Nil) => BLispEvalResult::Result(BLispExpr::Float(float.abs())),
             (_, _) => panic!("abs only takes a single numberical argument"),
         }
     } else {
@@ -144,11 +145,11 @@ fn abs(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     }
 }
 
-fn sign(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn sign(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Number(num), BLispExpr::Nil) => BLispExpr::Number(num.signum()),
-            (BLispExpr::Float(float), BLispExpr::Nil) => BLispExpr::Float(float.signum()),
+            (BLispExpr::Number(num), BLispExpr::Nil) => BLispEvalResult::Result(BLispExpr::Number(num.signum())),
+            (BLispExpr::Float(float), BLispExpr::Nil) => BLispEvalResult::Result(BLispExpr::Float(float.signum())),
             (_, _) => panic!("abs only takes a single numberical argument"),
         }
     } else {
@@ -156,15 +157,15 @@ fn sign(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     }
 }
 
-fn add(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn add(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         if let BLispExpr::SExp(second, rest) = *rest {
             if *rest == BLispExpr::Nil {
                 return match (*first, *second) {
-                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispExpr::Number(first + second),
-                    (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Float(first + second as f64),
-                    (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Float(first as f64 + second),
-                    (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Float(first + second),
+                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispEvalResult::Result(BLispExpr::Number(first + second)),
+                    (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Float(first + second as f64)),
+                    (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first as f64 + second)),
+                    (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first + second)),
                     (_, _) => panic!("Unexpected types to add"),
                 }
             }
@@ -174,15 +175,15 @@ fn add(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     panic!("Add expects two arguments");
 }
 
-fn sub(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn sub(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         if let BLispExpr::SExp(second, rest) = *rest {
             if *rest == BLispExpr::Nil {
                 return match (*first, *second) {
-                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispExpr::Number(first - second),
-                    (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Float(first - second as f64),
-                    (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Float(first as f64 - second),
-                    (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Float(first - second),
+                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispEvalResult::Result(BLispExpr::Number(first - second)),
+                    (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Float(first - second as f64)),
+                    (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first as f64 - second)),
+                    (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first - second)),
                     (_, _) => panic!("Unexpected types to sub"),
                 }
             }
@@ -192,15 +193,15 @@ fn sub(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     panic!("Add expects two arguments");
 }
 
-fn mul(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn mul(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         if let BLispExpr::SExp(second, rest) = *rest {
             if *rest == BLispExpr::Nil {
                 return match (*first, *second) {
-                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispExpr::Number(first * second),
-                    (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Float(first * second as f64),
-                    (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Float(first as f64 * second),
-                    (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Float(first * second),
+                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispEvalResult::Result(BLispExpr::Number(first * second)),
+                    (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Float(first * second as f64)),
+                    (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first as f64 * second)),
+                    (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first * second)),
                     (first, second) => panic!("Unexpected types to mul (* {} {})", first, second),
                 }
             }
@@ -210,15 +211,15 @@ fn mul(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     panic!("Add expects two arguments");
 }
 
-fn int_div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn int_div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         if let BLispExpr::SExp(second, rest) = *rest {
             if *rest == BLispExpr::Nil {
                 return match (*first, *second) {
-                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispExpr::Number(first / second),
-                    (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Float(first / second as f64),
-                    (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Float(first as f64 / second),
-                    (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Float(first / second),
+                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispEvalResult::Result(BLispExpr::Number(first / second)),
+                    (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Float(first / second as f64)),
+                    (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first as f64 / second)),
+                    (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first / second)),
                     (_, _) => panic!("Unexpected types to int div"),
                 }
             }
@@ -228,15 +229,15 @@ fn int_div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     panic!("Add expects two arguments");
 }
 
-fn div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         if let BLispExpr::SExp(second, rest) = *rest {
             if *rest == BLispExpr::Nil {
                 return match (*first, *second) {
-                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispExpr::Float(first as f64 / second as f64),
-                    (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Float(first / second as f64),
-                    (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Float(first as f64 / second),
-                    (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Float(first / second),
+                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispEvalResult::Result(BLispExpr::Float(first as f64 / second as f64)),
+                    (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Float(first / second as f64)),
+                    (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first as f64 / second)),
+                    (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first / second)),
                     (_, _) => panic!("Unexpected types to div"),
                 }
             }
@@ -246,12 +247,12 @@ fn div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     panic!("Add expects two arguments");
 }
 
-fn modulo(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn modulo(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         if let BLispExpr::SExp(second, rest) = *rest {
             if *rest == BLispExpr::Nil {
                 return match (*first, *second) {
-                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispExpr::Number(first % second),
+                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispEvalResult::Result(BLispExpr::Number(first % second)),
                     (_, _) => panic!("Unexpected types to modulo"),
                 }
             }
@@ -262,60 +263,60 @@ fn modulo(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
 }
 
 //=============== Logical Operators ===============
-fn not(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn not(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Bool(value), BLispExpr::Nil) => return BLispExpr::Bool(!value),
+            (BLispExpr::Bool(value), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(!value)),
             (_, _) => panic!("not must take single, boolean argument"),
         }
     }
     panic!("Malformed argument give to not");
 }
 
-fn and(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+fn and(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match evaluate(first, env.clone()) {
             BLispExpr::Bool(true) => {
                 match evaluate(second, env.clone()) {
-                    BLispExpr::Bool(value) => return BLispExpr::Bool(value),
+                    BLispExpr::Bool(value) => return BLispEvalResult::TailCall(BLispExpr::Bool(value), env.clone()),
                     _ => panic!("Second argument to \"and\" not boolean"),
                 }
             },
-            BLispExpr::Bool(false) => return BLispExpr::Bool(false),
+            BLispExpr::Bool(false) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             _ => panic!("First argument to \"and\" not boolean")
         }
     })
 }
 
-fn or(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+fn or(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match evaluate(first, env.clone()) {
             BLispExpr::Bool(false) => {
                 match evaluate(second, env.clone()) {
-                    BLispExpr::Bool(value) => return BLispExpr::Bool(value),
+                    BLispExpr::Bool(value) => return BLispEvalResult::TailCall(BLispExpr::Bool(value), env.clone()),
                     _ => panic!("Second argument to \"or\" not boolean"),
                 }
             },
-            BLispExpr::Bool(true) => return BLispExpr::Bool(true),
+            BLispExpr::Bool(true) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             _ => panic!("First argument to \"and\" not boolean")
         }
     })
 }
 
-fn xor(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn xor(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match (first, second) {
-            (BLispExpr::Bool(first), BLispExpr::Bool(second)) => return BLispExpr::Bool((first || second) && !(first && second)),
+            (BLispExpr::Bool(first), BLispExpr::Bool(second)) => return BLispEvalResult::Result(BLispExpr::Bool((first || second) && !(first && second))),
             (_, _) => panic!("\"and\" predicate must be given to boolean arguments"),
         }
     })
 }
 
 //=============== Bitwise Operators ===============
-fn b_not(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn b_not(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Number(value), BLispExpr::Nil) => return BLispExpr::Number(!value),
+            (BLispExpr::Number(value), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Number(!value)),
             (_, _) => panic!("Bitwise not must recieve single Number as argument")
         }
     }
@@ -323,216 +324,216 @@ fn b_not(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     panic!("Malformed list given to bitwise not");
 }
 
-fn b_and(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn b_and(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match (first, second) {
-            (BLispExpr::Number(first), BLispExpr::Number(second)) => return BLispExpr::Number(first & second),
+            (BLispExpr::Number(first), BLispExpr::Number(second)) => return BLispEvalResult::Result(BLispExpr::Number(first & second)),
             (_, _) => panic!("Bitwise and must take two Number arguements"),
         }
     })
 }
 
-fn b_or(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn b_or(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match (first, second) {
-            (BLispExpr::Number(first), BLispExpr::Number(second)) => return BLispExpr::Number(first | second),
+            (BLispExpr::Number(first), BLispExpr::Number(second)) => return BLispEvalResult::Result(BLispExpr::Number(first | second)),
             (_, _) => panic!("Bitwise and must take two Number arguements"),
         }
     })
 }
 
-fn b_xor(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn b_xor(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match (first, second) {
-            (BLispExpr::Number(first), BLispExpr::Number(second)) => return BLispExpr::Number(first ^ second),
+            (BLispExpr::Number(first), BLispExpr::Number(second)) => return BLispEvalResult::Result(BLispExpr::Number(first ^ second)),
             (_, _) => panic!("Bitwise and must take two Number arguements"),
         }
     })
 }
 
 //=============== Type Checks ===============
-fn is_nil(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn is_nil(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Nil, BLispExpr::Nil) => return BLispExpr::Bool(true),
-            (_, BLispExpr::Nil) => return BLispExpr::Bool(false),
+            (BLispExpr::Nil, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
+            (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             (_, _) => panic!("Too many arguments provided to Nil check"),
         }
     }
     panic!("Malformed list given to Nil check")
 }
 
-fn is_bool(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn is_bool(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Bool(_), BLispExpr::Nil) => return BLispExpr::Bool(true),
-            (_, BLispExpr::Nil) => return BLispExpr::Bool(false),
+            (BLispExpr::Bool(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
+            (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             (_, _) => panic!("Too many arguments provided to Bool check"),
         }
     }
     panic!("Malformed list given to Bool check")
 }
 
-fn is_number(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn is_number(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Number(_), BLispExpr::Nil) => return BLispExpr::Bool(true),
-            (_, BLispExpr::Nil) => return BLispExpr::Bool(false),
+            (BLispExpr::Number(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
+            (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             (_, _) => panic!("Too many arguments provided to Number check"),
         }
     }
     panic!("Malformed list given to Number check")
 }
 
-fn is_float(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn is_float(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Float(_), BLispExpr::Nil) => return BLispExpr::Bool(true),
-            (_, BLispExpr::Nil) => return BLispExpr::Bool(false),
+            (BLispExpr::Float(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
+            (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             (_, _) => panic!("Too many arguments provided to Float check"),
         }
     }
     panic!("Malformed list given to Float check")
 }
 
-fn is_char(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn is_char(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Char(_), BLispExpr::Nil) => return BLispExpr::Bool(true),
-            (_, BLispExpr::Nil) => return BLispExpr::Bool(false),
+            (BLispExpr::Char(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
+            (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             (_, _) => panic!("Too many arguments provided to Char check"),
         }
     }
     panic!("Malformed list given to Char check")
 }
 
-fn is_symbol(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn is_symbol(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Symbol(_), BLispExpr::Nil) => return BLispExpr::Bool(true),
-            (_, BLispExpr::Nil) => return BLispExpr::Bool(false),
+            (BLispExpr::Symbol(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
+            (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             (_, _) => panic!("Too many arguments provided to Symbol check"),
         }
     }
     panic!("Malformed list given to Symbol check")
 }
 
-fn is_applicable(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn is_applicable(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
             (BLispExpr::SpecialForm(_), BLispExpr::Nil) |
             (BLispExpr::Function(_), BLispExpr::Nil) |
             (BLispExpr::Lambda(_, _, _), BLispExpr::Nil) |
-            (BLispExpr::Macro(_, _, _), BLispExpr::Nil) => return BLispExpr::Bool(true),
-            (_, BLispExpr::Nil) => return BLispExpr::Bool(false),
+            (BLispExpr::Macro(_, _, _), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
+            (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             (_, _) => panic!("Too many arguments provided to Applicable check"),
         }
     }
     panic!("Malformed list given to Applicable check")
 }
 
-fn is_special_form(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn is_special_form(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::SpecialForm(_), BLispExpr::Nil) => return BLispExpr::Bool(true),
-            (_, BLispExpr::Nil) => return BLispExpr::Bool(false),
+            (BLispExpr::SpecialForm(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
+            (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             (_, _) => panic!("Too many arguments provided to Special Form check"),
         }
     }
     panic!("Malformed list given to Special Form check")
 }
 
-fn is_function(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn is_function(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::Function(_), BLispExpr::Nil) => return BLispExpr::Bool(true),
-            (_, BLispExpr::Nil) => return BLispExpr::Bool(false),
+            (BLispExpr::Function(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
+            (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             (_, _) => panic!("Too many arguments provided to Function check"),
         }
     }
     panic!("Malformed list given to Function check")
 }
 
-fn is_list(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn is_list(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (BLispExpr::SExp(_, _), BLispExpr::Nil) => return BLispExpr::Bool(true),
-            (_, BLispExpr::Nil) => return BLispExpr::Bool(false),
+            (BLispExpr::SExp(_, _), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
+            (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             (_, _) => panic!("Too many arguments provided to List check"),
         }
     }
     panic!("Malformed list given to List check")
 }
 //=============== Comparison Predicates ===============
-fn eq(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn eq(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
-        BLispExpr::Bool(first == second)
+        BLispEvalResult::Result(BLispExpr::Bool(first == second))
     })
 }
 
-fn neq(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn neq(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
-        BLispExpr::Bool(first != second)
+        BLispEvalResult::Result(BLispExpr::Bool(first != second))
     })
 }
 
-fn lt(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn lt(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match (first, second) {
-            (BLispExpr::Number(first), BLispExpr::Number(second)) => BLispExpr::Bool(first < second),
-            (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Bool(first < second as f64),
-            (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Bool((first as f64) < second),
-            (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Bool(first < second),
+            (BLispExpr::Number(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Bool(first < second)),
+            (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Bool(first < second as f64)),
+            (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool((first as f64) < second)),
+            (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool(first < second)),
             (_, _) => panic!("Incompatible types given to less than"),
         }
     })
 }
 
-fn lte(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn lte(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match (first, second) {
-            (BLispExpr::Number(first), BLispExpr::Number(second)) => BLispExpr::Bool(first <= second),
-            (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Bool(first <= second as f64),
-            (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Bool((first as f64) <= second),
-            (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Bool(first <= second),
+            (BLispExpr::Number(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Bool(first <= second)),
+            (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Bool(first <= second as f64)),
+            (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool((first as f64) <= second)),
+            (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool(first <= second)),
             (_, _) => panic!("Incompatible types given to less than"),
         }
     })
 }
 
-fn gt(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn gt(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match (first, second) {
-            (BLispExpr::Number(first), BLispExpr::Number(second)) => BLispExpr::Bool(first > second),
-            (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Bool(first > second as f64),
-            (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Bool((first as f64) > second),
-            (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Bool(first > second),
+            (BLispExpr::Number(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Bool(first > second)),
+            (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Bool(first > second as f64)),
+            (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool((first as f64) > second)),
+            (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool(first > second)),
             (_, _) => panic!("Incompatible types given to less than"),
         }
     })
 }
 
-fn gte(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn gte(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match (first, second) {
-            (BLispExpr::Number(first), BLispExpr::Number(second)) => BLispExpr::Bool(first >= second),
-            (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispExpr::Bool(first >= second as f64),
-            (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispExpr::Bool((first as f64) >= second),
-            (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispExpr::Bool(first >= second),
+            (BLispExpr::Number(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Bool(first >= second)),
+            (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Bool(first >= second as f64)),
+            (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool((first as f64) >= second)),
+            (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool(first >= second)),
             (_, _) => panic!("Incompatible types given to less than"),
         }
     })
 }
 
 //=============== Special Forms ===============
-fn if_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+fn if_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(predicate, rest) = args {
         if let BLispExpr::SExp(first, rest) = *rest {
             if let BLispExpr::SExp(second, rest) = *rest {
                 if *rest == BLispExpr::Nil {
                     match evaluate(*predicate, env.clone()) {
-                        BLispExpr::Bool(true) => return evaluate(*first, env.clone()),
-                        BLispExpr::Bool(false) => return evaluate(*second, env.clone()),
+                        BLispExpr::Bool(true) => return BLispEvalResult::TailCall(*first, env),
+                        BLispExpr::Bool(false) => return BLispEvalResult::TailCall(*second, env),
                         _ => panic!("First argument to \"if\" must evaluate to boolean")
                     }
                 }
@@ -563,13 +564,13 @@ fn bind_from_binding_list(mut binding_list: BLispExpr, eval_env: Rc<BLispEnv>, e
     }
 }
 
-fn let_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+fn let_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(binding_list, rest) = args {
         if let BLispExpr::SExp(expr, rest) = *rest {
             if *rest == BLispExpr::Nil {
                 let mut child_env = BLispEnv::extend(env.clone());
                 bind_from_binding_list(*binding_list, env.clone(), &mut child_env);
-                return evaluate(*expr, Rc::new(child_env))
+                return BLispEvalResult::TailCall(*expr, Rc::new(child_env))
             }
         }
     }
@@ -577,14 +578,14 @@ fn let_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
     panic!("let requires list of bindings and single expr to execute with bindings")
 }
 
-fn dyn_let(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+fn dyn_let(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
      if let BLispExpr::SExp(binding_expr, rest) = args {
         if let BLispExpr::SExp(expr, rest) = *rest {
             if *rest == BLispExpr::Nil {
                 let binding_list = evaluate(*binding_expr, env.clone());
                 let mut child_env = BLispEnv::extend(env.clone());
                 bind_from_binding_list(binding_list, env.clone(), &mut child_env);
-                return evaluate(*expr, Rc::new(child_env))
+                return BLispEvalResult::TailCall(*expr, Rc::new(child_env))
             }
         }
     }
@@ -592,12 +593,12 @@ fn dyn_let(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
     panic!("import requires list of bindings and single expr to execute with bindings")
 }
 
-fn load(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+fn load(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(file_name, rest) = args {
         match (*file_name, *rest) {
             (file_name, BLispExpr::Nil) => {
                 let loaded = fs::read_to_string(collect_string(file_name)).expect("Failed to open file").parse().expect("Failed to read file");
-                return evaluate(blisp_parser::parse(&mut blisp_lexer::lex(loaded)), env);
+                return BLispEvalResult::TailCall(blisp_parser::parse(&mut blisp_lexer::lex(loaded)), env);
             },
             (_, _) => panic!("Load must take single filename argument"),
         }
@@ -606,11 +607,11 @@ fn load(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
 }
 
 //=============== Lambda Creation ===============
-fn lambda(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+fn lambda(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(binding_list, rest) = args {
         if let BLispExpr::SExp(eval_expr, rest) = *rest {
             if *rest == BLispExpr::Nil {
-                return BLispExpr::Lambda(binding_list, eval_expr, env)
+                return BLispEvalResult::Result(BLispExpr::Lambda(binding_list, eval_expr, env));
             }
         }
     }
@@ -619,28 +620,28 @@ fn lambda(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
 }
 
 //=============== Input/Output ===============
-fn print_std(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+fn print_std(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         if *rest == BLispExpr::Nil {
             println!("{}", collect_string(*first));
-            return BLispExpr::Bool(true);
+            return BLispEvalResult::Result(BLispExpr::Bool(true));
         }
     }
     panic!("Malformed list given to print")
 }
 
-fn read_std(_args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+fn read_std(_args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     let mut buffer = String::new();
     io::stdin().read_line(&mut buffer).expect("Failed to read from standard in");
     buffer = format!("\"{}\"", buffer);
-    evaluate(parse_string_literal(&mut blisp_lexer::lex(buffer.chars().collect())), env.clone())
+    BLispEvalResult::TailCall(parse_string_literal(&mut blisp_lexer::lex(buffer.chars().collect())), env.clone())
 }
 
 //=============== Macros ===============
-fn quote(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
+pub fn quote(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (first, BLispExpr::Nil) => first,
+            (first, BLispExpr::Nil) => BLispEvalResult::Result(first),
             (_, _) => panic!("quote must take single argument"),
         }
     } else {
@@ -648,11 +649,11 @@ fn quote(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispExpr {
     }
 }
 
-fn def_macro(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+fn def_macro(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(binding_list, rest) = args {
         if let BLispExpr::SExp(eval_expr, rest) = *rest {
             if *rest == BLispExpr::Nil {
-                return BLispExpr::Macro(binding_list, eval_expr, env)
+                return BLispEvalResult::Result(BLispExpr::Macro(binding_list, eval_expr, env));
             }
         }
     }
@@ -660,10 +661,10 @@ fn def_macro(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
     panic!("Malformed arguments given to macro")
 }
 
-fn eval(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+fn eval(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (first, BLispExpr::Nil) => evaluate(first, env),
+            (first, BLispExpr::Nil) => BLispEvalResult::TailCall(first, env),
             (_, _) => panic!("eval must take single argument"),
         }
     } else {
