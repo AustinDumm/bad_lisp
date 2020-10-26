@@ -9,6 +9,13 @@ pub struct BLispEnv {
     parent: Option<Rc<BLispEnv>>,
 }
 
+impl std::fmt::Display for BLispEnv {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+
+}
+
 impl BLispEnv {
     pub fn new() -> BLispEnv {
         BLispEnv { map: BLispEnvMap::new(), parent: None }
@@ -74,7 +81,7 @@ pub enum BLispExpr {
     SpecialForm(fn(BLispExpr, Rc<BLispEnv>) -> BLispEvalResult),
     Function(fn(BLispExpr, Rc<BLispEnv>) -> BLispEvalResult),
     Lambda(Box<BLispExpr>, Box<BLispExpr>, Rc<BLispEnv>),
-    Macro(Box<BLispExpr>, Box<BLispExpr>, Rc<BLispEnv>),
+    Macro(Box<BLispExpr>, Box<BLispExpr>),
     SExp(Box<BLispExpr>, Box<BLispExpr>),
 }
 

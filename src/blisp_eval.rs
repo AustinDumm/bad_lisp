@@ -33,13 +33,13 @@ pub fn evaluate(mut expr: BLispExpr, mut env: Rc<BLispEnv>) -> BLispExpr {
                         env = Rc::new(BLispEnv::bind(local_env.clone(), *arg_list, rest));
                         continue;
                     },
-                    (BLispExpr::Macro(arg_list, next_expr, local_env), rest) => {
+                    (BLispExpr::Macro(arg_list, next_expr), rest) => {
                         expr = *next_expr;
-                        env = Rc::new(BLispEnv::bind(local_env.clone(), *arg_list, rest));
+                        env = Rc::new(BLispEnv::bind(env.clone(), *arg_list, rest));
                         continue
                     },
-                    (_, _) => {
-                        panic!("Unapplicable first element in list");
+                    (item, _) => {
+                        panic!("Unapplicable first element in list: {}", item);
                     },
                 }
             },

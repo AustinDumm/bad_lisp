@@ -64,7 +64,7 @@ fn collect_string(mut string_expr: BLispExpr) -> String {
     while let BLispExpr::SExp(first, rest) = string_expr {
         match (*first, *rest) {
             (BLispExpr::Char(character), rest) => { output += &String::from(character); string_expr = rest; },
-            (_, _) => panic!("Expected list of characters"),
+            (first, rest) => panic!("Expected list of characters ({} . {})", first, rest),
         }
     }
 
@@ -97,6 +97,7 @@ fn first(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         if let BLispExpr::SExp(first, _) = *arg {
             return BLispEvalResult::Result(*first)
         }
+        panic!("\"first\" passed argument that is not a list: {}", arg);
     }
     panic!("first must take list argument");
 }
@@ -106,6 +107,7 @@ fn rest(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         if let BLispExpr::SExp(_, rest) = *arg {
             return BLispEvalResult::Result(*rest)
         }
+        panic!("rest given argument: {}", arg);
     }
     panic!("rest must take list argument");
 }
@@ -267,7 +269,7 @@ fn not(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
             (BLispExpr::Bool(value), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(!value)),
-            (_, _) => panic!("not must take single, boolean argument"),
+            (first, rest) => panic!("not must take single, boolean argument ({} . {})", first, rest),
         }
     }
     panic!("Malformed argument give to not");
@@ -424,7 +426,7 @@ fn is_applicable(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
             (BLispExpr::SpecialForm(_), BLispExpr::Nil) |
             (BLispExpr::Function(_), BLispExpr::Nil) |
             (BLispExpr::Lambda(_, _, _), BLispExpr::Nil) |
-            (BLispExpr::Macro(_, _, _), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
+            (BLispExpr::Macro(_, _), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             (_, _) => panic!("Too many arguments provided to Applicable check"),
         }
@@ -534,7 +536,7 @@ fn if_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
                     match evaluate(*predicate, env.clone()) {
                         BLispExpr::Bool(true) => return BLispEvalResult::TailCall(*first, env),
                         BLispExpr::Bool(false) => return BLispEvalResult::TailCall(*second, env),
-                        _ => panic!("First argument to \"if\" must evaluate to boolean")
+                        result => panic!("First argument to \"if\" must evaluate to boolean: {} found", result)
                     }
                 }
             }
@@ -633,6 +635,7 @@ fn print_std(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
 fn read_std(_args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     let mut buffer = String::new();
     io::stdin().read_line(&mut buffer).expect("Failed to read from standard in");
+    buffer.pop();
     buffer = format!("\"{}\"", buffer);
     BLispEvalResult::TailCall(parse_string_literal(&mut blisp_lexer::lex(buffer.chars().collect())), env.clone())
 }
@@ -649,11 +652,11 @@ pub fn quote(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     }
 }
 
-fn def_macro(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
+fn def_macro(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(binding_list, rest) = args {
         if let BLispExpr::SExp(eval_expr, rest) = *rest {
             if *rest == BLispExpr::Nil {
-                return BLispEvalResult::Result(BLispExpr::Macro(binding_list, eval_expr, env));
+                return BLispEvalResult::Result(BLispExpr::Macro(binding_list, eval_expr));
             }
         }
     }

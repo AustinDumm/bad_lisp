@@ -1,0 +1,7 @@
+(dyn-let (load "./library/fnc.bl")
+    (let ((user-input (read)))
+        (cond (((= user-input "a") 0)
+               ((= user-input "b") 1)
+               ((= user-input "c") 2)
+               ((= user-input "d") 3)
+               (#t 4)))))

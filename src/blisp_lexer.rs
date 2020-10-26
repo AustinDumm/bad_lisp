@@ -13,6 +13,13 @@ pub enum BLispToken {
     CloseDelimiter(BLispBrace),
 }
 
+impl std::fmt::Display for BLispToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+
 impl BLispToken {
     pub fn is_token_interruptor(character: &char) -> bool {
         BLispToken::is_open_delimiter(character) ||

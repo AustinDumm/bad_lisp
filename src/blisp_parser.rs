@@ -14,7 +14,8 @@ pub fn parse(token_queue: &mut VecDeque<BLispToken>) -> BLispExpr {
         Some(BLispToken::OpenDelimiter(_)) => parse_list(token_queue),
         Some(BLispToken::Expr(_)) => token_queue.pop_front().unwrap().unwrap_expr(),
         Some(BLispToken::StringLiteral(_)) => parse_string_literal(token_queue),
-        _ => panic!("Unexpected token found while parsing"),
+        Some(unexpected) => panic!("Unexpected token found while parsing: {}", unexpected),
+        None => panic!("No token found while parsing"),
     }
 }
 
