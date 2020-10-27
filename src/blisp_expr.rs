@@ -87,7 +87,16 @@ pub enum BLispExpr {
 
 impl std::fmt::Display for BLispExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        match self {
+            BLispExpr::Nil => write!(f, "()"),
+            BLispExpr::Bool(value) => write!(f, "{}", if *value { "#t" } else { "#f" }),
+            BLispExpr::Number(value) => write!(f, "{}", value),
+            BLispExpr::Float(value) => write!(f, "{}", value),
+            BLispExpr::Char(value) => write!(f, "{}", value),
+            BLispExpr::Symbol(name) => write!(f, "{}", name),
+            BLispExpr::SExp(_, _) => write!(f, "({})", self.format_as_list()),
+            value => write!(f, "{}", value),
+        }
     }
 }
 
@@ -99,5 +108,17 @@ impl BLispExpr {
     pub fn cons_sexp(first: BLispExpr, rest: BLispExpr) -> BLispExpr {
         BLispExpr::SExp(Box::new(first),
                         Box::new(rest))
+    }
+
+    fn format_as_list(&self) -> String {
+        if let BLispExpr::SExp(first, rest) = self {
+            match (*first.clone(), *rest.clone()) {
+                (value, BLispExpr::SExp(_, _)) => format!("{} {}", value, rest.format_as_list()),
+                (value, BLispExpr::Nil) => format!("{}", value),
+                (value, rest) => format!("{} . {}", value, rest),
+            }
+        } else {
+            panic!("BLispExpr expected to be list")
+        }
     }
 }
