@@ -95,7 +95,7 @@ impl std::fmt::Display for BLispExpr {
             BLispExpr::Char(value) => write!(f, "{}", value),
             BLispExpr::Symbol(name) => write!(f, "{}", name),
             BLispExpr::SExp(_, _) => write!(f, "({})", self.format_as_list()),
-            value => write!(f, "{}", value),
+            value => write!(f, "{:?}", value),
         }
     }
 }
