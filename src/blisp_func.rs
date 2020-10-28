@@ -566,6 +566,18 @@ fn bind_from_binding_list(mut binding_list: BLispExpr, eval_env: Rc<BLispEnv>, e
     }
 }
 
+fn bind_from_seq_binding_list(mut binding_list: BLispExpr, mut env: BLispEnv) -> BLispEnv {
+    while binding_list != BLispExpr::Nil {
+        if let BLispExpr::SExp(binding, rest) = binding_list {
+            let last_env = Rc::new(env);
+            env = BLispEnv::extend(last_env.clone());
+            bind_single_binding(*binding, last_env, &mut env);
+            binding_list = *rest;
+        }
+    }
+    env
+}
+
 fn let_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(binding_list, rest) = args {
         if let BLispExpr::SExp(expr, rest) = *rest {
@@ -578,6 +590,20 @@ fn let_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     }
 
     panic!("let requires list of bindings and single expr to execute with bindings")
+}
+
+fn let_seq(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
+    if let BLispExpr::SExp(binding_list, rest) = args {
+        if let BLispExpr::SExp(expr, rest) = *rest {
+            if *rest == BLispExpr::Nil {
+                let child_env = BLispEnv::extend(env.clone());
+                let child_env = bind_from_seq_binding_list(*binding_list, child_env);
+                return BLispEvalResult::TailCall(*expr, Rc::new(child_env))
+            }
+        }
+    }
+
+    panic!("let* requires list of bindings and single expr to execute with bindings")
 }
 
 fn dyn_let(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -726,6 +752,7 @@ pub fn default_env() -> BLispEnv {
 
     env.insert("if".to_string(), BLispExpr::SpecialForm(if_impl));
     env.insert("let".to_string(), BLispExpr::SpecialForm(let_impl));
+    env.insert("let*".to_string(), BLispExpr::SpecialForm(let_seq));
     env.insert("dyn-let".to_string(), BLispExpr::SpecialForm(dyn_let));
     env.insert("seq".to_string(), BLispExpr::Function(seq));
     env.insert("load".to_string(), BLispExpr::Function(load));
