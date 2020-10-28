@@ -1,4 +1,4 @@
-(dyn-let (load "./library/fnc.bl")
+(dyn-let (load "./library/mac.bl")
     (let ((user-input (read)))
         (cond (((= user-input "a") 0)
                ((= user-input "b") 1)
