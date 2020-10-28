@@ -611,8 +611,8 @@ fn dyn_let(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
         if let BLispExpr::SExp(expr, rest) = *rest {
             if *rest == BLispExpr::Nil {
                 let binding_list = evaluate(*binding_expr, env.clone());
-                let mut child_env = BLispEnv::extend(env.clone());
-                bind_from_binding_list(binding_list, env.clone(), &mut child_env);
+                let child_env = BLispEnv::extend(env.clone());
+                let child_env = bind_from_seq_binding_list(binding_list, child_env);
                 return BLispEvalResult::TailCall(*expr, Rc::new(child_env))
             }
         }
