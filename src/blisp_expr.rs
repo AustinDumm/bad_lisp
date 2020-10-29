@@ -95,7 +95,10 @@ impl std::fmt::Display for BLispExpr {
             BLispExpr::Char(value) => write!(f, "{}", value),
             BLispExpr::Symbol(name) => write!(f, "{}", name),
             BLispExpr::SExp(_, _) => write!(f, "({})", self.format_as_list()),
-            value => write!(f, "{:?}", value),
+            BLispExpr::SpecialForm(_) => write!(f, "SpecialForm"),
+            BLispExpr::Function(_) => write!(f, "Function"),
+            BLispExpr::Macro(args, body) => write!(f, "Macro({} -> \n\t{})", args, body),
+            BLispExpr::Lambda(args, body, _) => write!(f, "Lambda({} -> \n\t{})", args, body),
         }
     }
 }

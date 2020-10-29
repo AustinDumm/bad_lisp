@@ -6,7 +6,7 @@
                                                           (let ((first-pred (first first-cond))
                                                                 (first-result (first (rest first-cond))))
                                                                 (if (eval first-pred)
-                                                                    first-result
+                                                                    (eval first-result)
                                                                     (if (nil? rest-cond)
                                                                         ()
                                                                         (inner-cond rest-cond))))))))
