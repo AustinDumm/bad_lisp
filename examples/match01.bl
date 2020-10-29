@@ -1,0 +1,7 @@
+(dyn-let (load "./library/pat.bl")
+    (match (exec (read))
+           (((x a (y z))
+                (+ x (+ y z)))
+            ((a b c d)
+                (+ a (+ b (+ c d))))
+)))

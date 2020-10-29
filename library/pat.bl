@@ -20,11 +20,27 @@
                                         (if (any-satisfy result (lambda (x) (= #f x)))
                                             #f
                                             (filter result (lambda (x) (not (= #f x))))))))))
-        (match-eval (macro (pattern values expr)
-                        (let ((matched (match-to-pattern pattern values)))
-                            (if (= matched #f)
-                                (list #f ())
-                                (dyn-let matched
-                                         (list #t (eval expr)))))))
+        (match-eval (lambda (pattern values expr)
+                            (let ((matched (match-to-pattern pattern values)))
+                                (if (= matched #f)
+                                    (list #f ())
+                                    (dyn-let matched
+                                             (list #t (eval expr)))))))
+        (match (macro (value raw-match-list)
+                    (((lambda (x) (x x))
+                        (lambda (rec)
+                            (lambda (value match-list)
+                                     (if (nil? match-list)
+                                         ()
+                                         (let* ((first-opt (first match-list))
+                                                (rest-opt (rest match-list))
+                                                (pattern (first first-opt))
+                                                (expr (first (rest first-opt)))
+                                                (matched (match-eval pattern value expr))
+                                                (matched-success (first matched))
+                                                (matched-result (first (rest matched))))
+                                               (if matched-success
+                                                   matched-result
+                                                   ((rec rec) value rest-opt))))))) (eval value) raw-match-list)))
     )
 )
