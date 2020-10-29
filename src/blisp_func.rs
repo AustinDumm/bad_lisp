@@ -658,6 +658,16 @@ fn print_std(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     panic!("Malformed list given to print")
 }
 
+fn debug(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
+    if let BLispExpr::SExp(first, rest) = args {
+        if *rest == BLispExpr::Nil {
+            println!("{}", first);
+            return BLispEvalResult::Result(BLispExpr::Bool(true));
+        }
+    }
+    panic!("Malformed argument given to debug")
+}
+
 fn read_std(_args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     let mut buffer = String::new();
     io::stdin().read_line(&mut buffer).expect("Failed to read from standard in");
@@ -764,6 +774,7 @@ pub fn default_env() -> BLispEnv {
     env.insert("exit".to_string(), BLispExpr::Function(exit));
 
     env.insert("print".to_string(), BLispExpr::Function(print_std));
+    env.insert("debug".to_string(), BLispExpr::Function(debug));
     env.insert("read".to_string(), BLispExpr::Function(read_std));
 
     env.insert("quote".to_string(), BLispExpr::SpecialForm(quote));
