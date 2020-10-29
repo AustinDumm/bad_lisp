@@ -79,5 +79,12 @@
                         (if (or (= count 0) (nil? list))
                             list
                             ((drop* drop*) (rest list) (- count 1)))))))
+        (append (lambda (start end)
+                    (((lambda (x) (x x))
+                        (lambda (append*)
+                            (lambda (start end)
+                                (if (nil? start)
+                                    end
+                                    ((append* append*) (rest start) (cons (first start) end)))))) (reverse start) end)))
     )
 )
