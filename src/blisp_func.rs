@@ -711,6 +711,19 @@ fn eval(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     }
 }
 
+fn exec(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
+    if let BLispExpr::SExp(first, rest) = args {
+        match (*first, *rest) {
+            (first, BLispExpr::Nil) => {
+                let string = collect_string(first);
+                return BLispEvalResult::TailCall(blisp_parser::parse(&mut blisp_lexer::lex(string)), env);
+            },
+            (_, _) => panic!("Single argument must be passed to exec")
+        }
+    }
+    panic!("Malformed string given to exec");
+}
+
 //=============== Default Environment ===============
 pub fn default_env() -> BLispEnv {
     let mut env = BLispEnv::new();
@@ -770,6 +783,7 @@ pub fn default_env() -> BLispEnv {
     env.insert("lambda".to_string(), BLispExpr::SpecialForm(lambda));
     env.insert("macro".to_string(), BLispExpr::SpecialForm(def_macro));
     env.insert("eval".to_string(), BLispExpr::Function(eval));
+    env.insert("exec".to_string(), BLispExpr::Function(exec));
 
     env.insert("exit".to_string(), BLispExpr::Function(exit));
 
