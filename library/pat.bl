@@ -4,7 +4,8 @@
                                     (let ((result (((lambda (x) (x x))
                                                 (lambda (rec)
                                                     (lambda (pattern values)
-                                                        (cond (
+                                                        (cond (((= pattern values) ())
+                                                               ((and (symbol? pattern) (symbol? values)) (list #f))
                                                                ((symbol? pattern)
                                                                     (list (list pattern values)))
                                                                ((and (and (list? pattern) (list? values)) (= (count pattern) (count values)))
@@ -15,8 +16,15 @@
                                                                                 (cond (((nil? matched) acc)
                                                                                        (#t (append acc matched))))))
                                                                         ()))
-                                                               ((= pattern values) ())
                                                                (#t (list #f))))))) pattern values)))
                                         (if (any-satisfy result (lambda (x) (= #f x)))
                                             #f
-                                            (filter result (lambda (x) (not (= #f x))))))))))))
+                                            (filter result (lambda (x) (not (= #f x))))))))))
+        (match-eval (macro (pattern values expr)
+                        (let ((matched (match-to-pattern pattern values)))
+                            (if (= matched #f)
+                                #f
+                                (dyn-let matched
+                                         (eval expr))))))
+    )
+)
