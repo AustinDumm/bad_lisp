@@ -23,8 +23,8 @@
         (match-eval (macro (pattern values expr)
                         (let ((matched (match-to-pattern pattern values)))
                             (if (= matched #f)
-                                #f
+                                (list #f ())
                                 (dyn-let matched
-                                         (eval expr))))))
+                                         (list #t (eval expr)))))))
     )
 )
