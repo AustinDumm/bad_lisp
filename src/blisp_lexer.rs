@@ -11,6 +11,7 @@ pub enum BLispToken {
     SExpDot,
     OpenDelimiter(BLispBrace),
     CloseDelimiter(BLispBrace),
+    QuoteLiteral,
 }
 
 impl std::fmt::Display for BLispToken {
@@ -99,6 +100,10 @@ pub fn lex(raw_string: String) -> VecDeque<BLispToken> {
                 },
                 '"' => {
                     lex_string_literal(&mut char_iterator)
+                },
+                '\'' => {
+                    char_iterator.next();
+                    BLispToken::QuoteLiteral
                 },
                 _ => {
                     lex_symbol(&mut char_iterator)

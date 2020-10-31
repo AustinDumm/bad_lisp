@@ -9,9 +9,13 @@ use crate::blisp_lexer::{
     BLispToken,
 };
 
+use crate::blisp_func;
+
 pub fn parse(token_queue: &mut VecDeque<BLispToken>) -> BLispExpr {
     match token_queue.front() {
         Some(BLispToken::OpenDelimiter(_)) => parse_list(token_queue),
+        Some(BLispToken::QuoteLiteral) => { token_queue.pop_front(); BLispExpr::cons_sexp(BLispExpr::SpecialForm(blisp_func::quote), 
+                                                                                          BLispExpr::cons_sexp(parse(token_queue), BLispExpr::Nil)) },
         Some(BLispToken::Expr(_)) => token_queue.pop_front().unwrap().unwrap_expr(),
         Some(BLispToken::StringLiteral(_)) => parse_string_literal(token_queue),
         Some(unexpected) => panic!("Unexpected token found while parsing: {}", unexpected),
