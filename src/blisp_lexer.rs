@@ -12,6 +12,8 @@ pub enum BLispToken {
     OpenDelimiter(BLispBrace),
     CloseDelimiter(BLispBrace),
     QuoteLiteral,
+    QuasiquoteLiteral,
+    UnquoteLiteral,
 }
 
 impl std::fmt::Display for BLispToken {
@@ -102,9 +104,14 @@ pub fn lex(raw_string: String) -> VecDeque<BLispToken> {
                     lex_string_literal(&mut char_iterator)
                 },
                 '\'' => {
-                    char_iterator.next();
-                    BLispToken::QuoteLiteral
+                    lex_quote_literal(&mut char_iterator)
                 },
+                '`' => {
+                    lex_quasiquote_literal(&mut char_iterator)
+                },
+                ',' => {
+                    lex_unquote_literal(&mut char_iterator)
+                }
                 _ => {
                     lex_symbol(&mut char_iterator)
                 },
@@ -280,6 +287,24 @@ where I: Iterator<Item = char> {
         Some(character) => panic!("Unexpected escape sequence in string literal: \\{}", character),
         None => panic!("Unexpected end to character stream in escape sequence"),
     }
+}
+
+fn lex_quote_literal<I>(iterator: &mut Peekable<I>) -> BLispToken
+where I: Iterator<Item = char> {
+    iterator.next();
+    BLispToken::QuoteLiteral
+}
+
+fn lex_quasiquote_literal<I>(iterator: &mut Peekable<I>) -> BLispToken
+where I: Iterator<Item = char> {
+    iterator.next();
+    BLispToken::QuasiquoteLiteral
+}
+
+fn lex_unquote_literal<I>(iterator: &mut Peekable<I>) -> BLispToken
+where I: Iterator<Item = char> {
+    iterator.next();
+    BLispToken::UnquoteLiteral
 }
 
 fn lex_symbol<I>(iterator: &mut Peekable<I>) -> BLispToken

@@ -707,9 +707,13 @@ pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     }
 
     fn quasi_list(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
-        if let BLispExpr::SExp(first, rest) = args {
-            let item = quasi_list_item(*first, env.clone());
-            BLispExpr::cons_sexp(item, quasi_list(*rest, env.clone()))
+        if let BLispExpr::SExp(first, rest) = args.clone() {
+            if *first == BLispExpr::Symbol(String::from("unquote")) {
+                quasi_list_item(args, env)
+            } else {
+                let item = quasi_list_item(*first, env.clone());
+                BLispExpr::cons_sexp(item, quasi_list(*rest, env.clone()))
+            }
         } else {
             quasi_list_item(args, env.clone())
         }
