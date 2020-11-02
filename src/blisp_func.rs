@@ -690,16 +690,16 @@ pub fn quote(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
 
 pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     fn quasi_list_item(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
-        if let BLispExpr::SExp(first, rest) = args.clone() {
-            if let (BLispExpr::Symbol(unquote_string), arg_list) = (*first, *rest) { 
-                if unquote_string == String::from("unquote") {
-                    if let BLispExpr::SExp(arg, nil) = arg_list {
-                        if *nil == BLispExpr::Nil {
-                            return evaluate(*arg, env.clone());
-                        }
+        if let BLispExpr::SExp(first, arg_list) = args.clone() {
+            if *first == BLispExpr::Symbol(String::from("unquote")) {
+                if let BLispExpr::SExp(arg, nil) = *arg_list {
+                    if *nil == BLispExpr::Nil {
+                        return evaluate(*arg, env.clone());
                     }
-                    panic!("unquote must take single argument");
                 }
+                panic!("unquote must take single argument");
+            } else {
+                return quasi_list(args, env)
             }
         }
 
