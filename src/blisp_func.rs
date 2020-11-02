@@ -688,6 +688,42 @@ pub fn quote(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     }
 }
 
+pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
+    fn quasi_list_item(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+        if let BLispExpr::SExp(first, rest) = args.clone() {
+            if let (BLispExpr::Symbol(unquote_string), arg_list) = (*first, *rest) { 
+                if unquote_string == String::from("unquote") {
+                    if let BLispExpr::SExp(arg, nil) = arg_list {
+                        if *nil == BLispExpr::Nil {
+                            return evaluate(*arg, env.clone());
+                        }
+                    }
+                    panic!("unquote must take single argument");
+                }
+            }
+        }
+
+        args
+    }
+
+    fn quasi_list(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+        if let BLispExpr::SExp(first, rest) = args {
+            let item = quasi_list_item(*first, env.clone());
+            BLispExpr::cons_sexp(item, quasi_list(*rest, env.clone()))
+        } else {
+            quasi_list_item(args, env.clone())
+        }
+    }
+
+    if let BLispExpr::SExp(first, rest) = args {
+        match (*first, *rest) {
+            (first, BLispExpr::Nil) => return BLispEvalResult::Result(quasi_list(first, env)),
+            (_, _) => panic!("Quasiquote can only take single argument")
+        }
+    }
+    panic!("Malformed list given to quasiquote")
+}
+
 fn def_macro(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(binding_list, rest) = args {
         if let BLispExpr::SExp(eval_expr, rest) = *rest {
@@ -796,6 +832,9 @@ pub fn default_env() -> BLispEnv {
     env.insert("lambda".to_string(), BLispExpr::SpecialForm(lambda));
     env.insert("macro".to_string(), BLispExpr::SpecialForm(def_macro));
     env.insert("eval".to_string(), BLispExpr::Function(eval));
+    env.insert("quote".to_string(), BLispExpr::SpecialForm(quote));
+    env.insert("quasiquote".to_string(), BLispExpr::SpecialForm(quasiquote));
+    env.insert("unquote".to_string(), BLispExpr::Function(eval));
     env.insert("exec".to_string(), BLispExpr::Function(exec));
     env.insert("parse".to_string(), BLispExpr::Function(parse));
 
@@ -804,8 +843,6 @@ pub fn default_env() -> BLispEnv {
     env.insert("print".to_string(), BLispExpr::Function(print_std));
     env.insert("debug".to_string(), BLispExpr::Function(debug));
     env.insert("read".to_string(), BLispExpr::Function(read_std));
-
-    env.insert("quote".to_string(), BLispExpr::SpecialForm(quote));
 
     env
 }
