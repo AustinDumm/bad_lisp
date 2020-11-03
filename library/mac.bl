@@ -1,4 +1,4 @@
-(quote ((cond (macro (raw-list)
+(let* ((cond (macro (raw-list)
                         (let ((inner-cond (macro (cond-list-sym)
                                                  (let ((cond-list (eval cond-list-sym)))
                                                     (let ((first-cond (first cond-list))
@@ -11,4 +11,5 @@
                                                                         ()
                                                                         (inner-cond rest-cond))))))))
                               (list-sym raw-list))
-                              (inner-cond list-sym))))))
+                              (inner-cond list-sym)))))
+     `((cond ,cond)))

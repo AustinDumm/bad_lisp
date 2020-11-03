@@ -1,1 +1,1 @@
-(dyn-let (load "./library/fnc.bl") (map (lambda (x) (* x x)) (range 0 1000 1)))
+(dyn-let (load "./library/lib.bl") (map (lambda (x) (* x x)) (range 0 1000 1)))

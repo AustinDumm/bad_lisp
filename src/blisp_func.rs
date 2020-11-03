@@ -579,7 +579,7 @@ fn bind_from_seq_binding_list(mut binding_list: BLispExpr, mut env: BLispEnv) ->
 }
 
 fn let_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
-    if let BLispExpr::SExp(binding_list, rest) = args {
+    if let BLispExpr::SExp(binding_list, rest) = args.clone() {
         if let BLispExpr::SExp(expr, rest) = *rest {
             if *rest == BLispExpr::Nil {
                 let mut child_env = BLispEnv::extend(env.clone());
@@ -589,7 +589,7 @@ fn let_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
         }
     }
 
-    panic!("let requires list of bindings and single expr to execute with bindings")
+    panic!("let requires list of bindings and single expr to execute with bindings. \nFound: {}", args)
 }
 
 fn let_seq(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -618,7 +618,7 @@ fn dyn_let(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
         }
     }
 
-    panic!("import requires list of bindings and single expr to execute with bindings")
+    panic!("dyn-let requires list of bindings and single expr to execute with bindings")
 }
 
 fn load(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
