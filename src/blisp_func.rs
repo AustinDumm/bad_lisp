@@ -626,7 +626,10 @@ fn load(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*file_name, *rest) {
             (file_name, BLispExpr::Nil) => {
                 let loaded = fs::read_to_string(collect_string(file_name)).expect("Failed to open file").parse().expect("Failed to read file");
-                return BLispEvalResult::TailCall(blisp_parser::parse(&mut blisp_lexer::lex(loaded)), env);
+                match blisp_lexer::lex(loaded) {
+                    Ok(mut list) => return BLispEvalResult::TailCall(blisp_parser::parse(&mut list), env.clone()),
+                    Err(error) => panic!("{}", error),
+                }
             },
             (_, _) => panic!("Load must take single filename argument"),
         }
@@ -673,7 +676,10 @@ fn read_std(_args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     io::stdin().read_line(&mut buffer).expect("Failed to read from standard in");
     buffer.pop();
     buffer = format!("\"{}\"", buffer);
-    BLispEvalResult::TailCall(parse_string_literal(&mut blisp_lexer::lex(buffer.chars().collect())), env.clone())
+    match blisp_lexer::lex(buffer.chars().collect()) {
+        Ok(mut list) => BLispEvalResult::TailCall(parse_string_literal(&mut list), env.clone()),
+        Err(error) => panic!("{}", error),
+    }
 }
 
 //=============== Macros ===============
@@ -756,7 +762,10 @@ fn exec(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (first, BLispExpr::Nil) => {
                 let string = collect_string(first);
-                return BLispEvalResult::TailCall(blisp_parser::parse(&mut blisp_lexer::lex(string)), env);
+                match blisp_lexer::lex(string) {
+                    Ok(mut list) => return BLispEvalResult::TailCall(blisp_parser::parse(&mut list), env),
+                    Err(error) => panic!("{}", error),
+                }
             },
             (_, _) => panic!("Single argument must be passed to exec")
         }
@@ -769,7 +778,10 @@ fn parse(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (first, BLispExpr::Nil) => {
                 let string = collect_string(first);
-                return BLispEvalResult::Result(blisp_parser::parse(&mut blisp_lexer::lex(string)));
+                match blisp_lexer::lex(string) {
+                    Ok(mut list) => return BLispEvalResult::Result(blisp_parser::parse(&mut list)),
+                    Err(error) => panic!("{}", error),
+                }
             },
             (_, _) => panic!("Single argument must be passed to exec")
         }

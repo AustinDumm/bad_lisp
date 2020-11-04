@@ -24,7 +24,10 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
         let filename = &args[1];
         let program: String = fs::read_to_string(filename)?.parse()?;
 
-        println!("{}", blisp_eval::evaluate(blisp_parser::parse(&mut blisp_lexer::lex(program)), std::rc::Rc::new(blisp_func::default_env())));
+        match blisp_lexer::lex(program) {
+            Ok(mut list) => println!("{}", blisp_eval::evaluate(blisp_parser::parse(&mut list), std::rc::Rc::new(blisp_func::default_env()))),
+            Err(error) => println!("{}", error),
+        }
 
         Ok(())
     }
@@ -38,7 +41,10 @@ fn repl() {
         let mut line = String::new();
         io::stdin().read_line(&mut line).expect("Failure reading line");
 
-        println!("{}", blisp_eval::evaluate(blisp_parser::parse(&mut blisp_lexer::lex(line)), std::rc::Rc::new(blisp_func::default_env())));
+        match blisp_lexer::lex(line) {
+            Ok(mut list) => println!("{}", blisp_eval::evaluate(blisp_parser::parse(&mut list), std::rc::Rc::new(blisp_func::default_env()))),
+            Err(error) => println!("{}", error),
+        }
     }
 }
 
