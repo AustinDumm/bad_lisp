@@ -8,75 +8,105 @@ use crate::blisp_expr::{
 use crate::blisp_lexer::{
     BLispToken,
     BLispTokenType,
+    BLispError,
+    BLispErrorType,
 };
 
 use crate::blisp_func;
 
-pub fn parse(token_queue: &mut VecDeque<BLispToken>) -> BLispExpr {
+type BLispExprResult = Result<BLispExpr, BLispError>;
+
+pub fn parse(token_queue: &mut VecDeque<BLispToken>) -> BLispExprResult {
     match token_queue.front() {
         Some(token) => {
             match token.token_type.clone() {
                 BLispTokenType::OpenDelimiter(_) => parse_list(token_queue),
-                BLispTokenType::QuoteLiteral => { token_queue.pop_front(); BLispExpr::cons_sexp(BLispExpr::SpecialForm(blisp_func::quote), 
-                                                                                                  BLispExpr::cons_sexp(parse(token_queue), BLispExpr::Nil)) },
-                BLispTokenType::QuasiquoteLiteral => { token_queue.pop_front(); BLispExpr::cons_sexp(BLispExpr::SpecialForm(blisp_func::quasiquote),
-                                                                                                       BLispExpr::cons_sexp(parse(token_queue), BLispExpr::Nil)) },
-                BLispTokenType::UnquoteLiteral => { token_queue.pop_front(); BLispExpr::cons_sexp(BLispExpr::Symbol(String::from("unquote")),
-                                                                                                    BLispExpr::cons_sexp(parse(token_queue), BLispExpr::Nil)) },
-                BLispTokenType::Expr(expr) => { token_queue.pop_front(); expr },
-                BLispTokenType::StringLiteral(_) => parse_string_literal(token_queue),
-                unexpected => panic!("Unexpected token found while parsing: {}", unexpected),
-            }
-        }
-        None => panic!("No token found while parsing"),
-    }
-}
-
-pub fn parse_list(queue: &mut VecDeque<BLispToken>) -> BLispExpr {
-    match queue.pop_front() {
-        Some(token) => {
-            match token.token_type {
-                BLispTokenType::OpenDelimiter(open_brace) => {
-                    let contents = parse_list_contents(queue);
-
-                    match queue.pop_front() {
-                        Some(token) => {
-                            match token.token_type {
-                                BLispTokenType::CloseDelimiter(close_brace) => {
-                                    if close_brace == open_brace {
-                                        return contents
-                                    } else {
-                                        panic!("Mismatched brace types")
-                                    }
-                                },
-                                unexpected => panic!("Unexpected end brace to list")
-                            }
-                        }
-                        _ => panic!("Unexpected closing delimiter to list")
+                BLispTokenType::QuoteLiteral => { 
+                    token_queue.pop_front(); 
+                    match parse(token_queue) {
+                        Ok(rest) => Ok(BLispExpr::cons_sexp(BLispExpr::SpecialForm(blisp_func::quote), 
+                                                            BLispExpr::cons_sexp(rest, BLispExpr::Nil))),
+                        Err(error) => return Err(error),
                     }
                 },
-                unexpected => panic!("Unexpected opening delimiter to list: {}", unexpected)
+                BLispTokenType::QuasiquoteLiteral => { 
+                    token_queue.pop_front();
+                    match parse(token_queue) {
+                        Ok(rest) => Ok(BLispExpr::cons_sexp(BLispExpr::SpecialForm(blisp_func::quasiquote),
+                                                            BLispExpr::cons_sexp(rest, BLispExpr::Nil))),
+                        Err(error) => return Err(error),
+                    }
+                },
+                BLispTokenType::UnquoteLiteral => { 
+                    token_queue.pop_front();
+                    match parse(token_queue) {
+                        Ok(rest) => Ok(BLispExpr::cons_sexp(BLispExpr::Symbol(String::from("unquote")),
+                                                            BLispExpr::cons_sexp(rest, BLispExpr::Nil))),
+                        Err(error) => return Err(error),
+                    }
+                },
+                BLispTokenType::Expr(expr) => { token_queue.pop_front(); Ok(expr) },
+                BLispTokenType::StringLiteral(_) => parse_string_literal(token_queue),
+                unexpected => Err(BLispError::new(BLispErrorType::Parsing, format!("Unexpected token found while parsing: {}", unexpected), token.position())),
             }
-        },
-        None => panic!("Unexpected opening delimiter to list")
+        }
+        None => Err(BLispError::new(BLispErrorType::Parsing, format!("No token found while parsing"), BLispError::no_position())),
     }
 }
 
-pub fn parse_list_contents(queue: &mut VecDeque<BLispToken>) -> BLispExpr {
+pub fn parse_list(queue: &mut VecDeque<BLispToken>) -> BLispExprResult {
+    match queue.pop_front() {
+        Some(token) => {
+            match token.token_type.clone() {
+                BLispTokenType::OpenDelimiter(open_brace) => {
+                    match parse_list_contents(queue, token.position()) {
+                        Ok(contents) => {
+                            match queue.pop_front() {
+                                Some(token) => {
+                                    match token.token_type.clone() {
+                                        BLispTokenType::CloseDelimiter(close_brace) => {
+                                            if close_brace == open_brace {
+                                                Ok(contents)
+                                            } else {
+                                                Err(BLispError::new(BLispErrorType::Parsing, format!("Mismatched brace types. {} Expected", BLispTokenType::OpenDelimiter(open_brace)), token.position()))
+                                            }
+                                        },
+                                        unexpected => Err(BLispError::new(BLispErrorType::Parsing, format!("Unexpected end brace to list: {}", unexpected), token.position()))
+                                    }
+                                }
+                                None => Err(BLispError::new(BLispErrorType::Parsing, format!("Unclosed list"), token.position())),
+                            }
+                        }
+                        Err(error) => Err(error)
+                    }
+                    
+                },
+                unexpected => Err(BLispError::new(BLispErrorType::Parsing, format!("Unexpected opening delimiter to list: {}", unexpected), token.position()))
+            }
+        },
+        None => Err(BLispError::new(BLispErrorType::Parsing, format!("Unexpected opening delimiter to list"), BLispError::no_position())),
+    }
+}
+
+pub fn parse_list_contents(queue: &mut VecDeque<BLispToken>, starting_position: (i32, i32)) -> BLispExprResult {
     match queue.front() {
         Some(token) => {
             match token.token_type {
-                BLispTokenType::CloseDelimiter(_) => BLispExpr::Nil,
+                BLispTokenType::CloseDelimiter(_) => Ok(BLispExpr::Nil),
                 BLispTokenType::SExpDot => { queue.pop_front(); parse(queue) },
-                _ => BLispExpr::cons_sexp(parse(queue),
-                                          parse_list_contents(queue)),
+                _ => {
+                    match (parse(queue), parse_list_contents(queue, starting_position)) {
+                        (Ok(first), Ok(rest)) => Ok(BLispExpr::cons_sexp(first, rest)),
+                        (Err(error), _) | (_, Err(error)) => Err(error),
+                    }
+                }
             }
         }
-        None => panic!("No token found while parsing list"),
+        None => Err(BLispError::new(BLispErrorType::Parsing, format!("No token found while parsing list"), starting_position)),
     }
 }
     
-pub fn parse_string_literal(queue: &mut VecDeque<BLispToken>) -> BLispExpr {
+pub fn parse_string_literal(queue: &mut VecDeque<BLispToken>) -> BLispExprResult {
     fn parse_char_iter<'a, I>(mut char_iter: I) -> BLispExpr
     where I: Iterator<Item = &'a char> {
         match char_iter.next() {
@@ -89,13 +119,13 @@ pub fn parse_string_literal(queue: &mut VecDeque<BLispToken>) -> BLispExpr {
     match queue.pop_front() {
         Some(token) => {
             match token.token_type {
-                BLispTokenType::StringLiteral(char_list) => BLispExpr::cons_sexp(BLispExpr::SpecialForm(crate::blisp_func::quote), 
-                                                                BLispExpr::cons_sexp(parse_char_iter(char_list.iter()),
-                                                                                     BLispExpr::Nil)),
-                _ => panic!("Unexpected token found when parsing string literal")
+                BLispTokenType::StringLiteral(char_list) => Ok(BLispExpr::cons_sexp(BLispExpr::SpecialForm(crate::blisp_func::quote), 
+                                                                  BLispExpr::cons_sexp(parse_char_iter(char_list.iter()),
+                                                                                       BLispExpr::Nil))),
+                _ => Err(BLispError::new(BLispErrorType::Parsing, format!("Unexpected token found when parsing string literal"), token.position())),
             }
         },
-        None => panic!("Unexpected end to token list while parsing string")
+        None => Err(BLispError::new(BLispErrorType::Parsing, format!("Unexpected end to token list while parsing string"), BLispError::no_position())),
     }
 }
 

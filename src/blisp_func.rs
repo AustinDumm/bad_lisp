@@ -627,7 +627,11 @@ fn load(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
             (file_name, BLispExpr::Nil) => {
                 let loaded = fs::read_to_string(collect_string(file_name)).expect("Failed to open file").parse().expect("Failed to read file");
                 match blisp_lexer::lex(loaded) {
-                    Ok(mut list) => return BLispEvalResult::TailCall(blisp_parser::parse(&mut list), env.clone()),
+                    Ok(mut list) => 
+                        match blisp_parser::parse(&mut list) {
+                            Ok(ast) => return BLispEvalResult::TailCall(ast, env.clone()),
+                            Err(error) => panic!("{}", error),
+                        }
                     Err(error) => panic!("{}", error),
                 }
             },
@@ -677,7 +681,11 @@ fn read_std(_args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     buffer.pop();
     buffer = format!("\"{}\"", buffer);
     match blisp_lexer::lex(buffer.chars().collect()) {
-        Ok(mut list) => BLispEvalResult::TailCall(parse_string_literal(&mut list), env.clone()),
+        Ok(mut list) => 
+            match parse_string_literal(&mut list) {
+                Ok(parsed) => BLispEvalResult::TailCall(parsed, env.clone()),
+                Err(error) => panic!("{}", error),
+            }
         Err(error) => panic!("{}", error),
     }
 }
@@ -763,7 +771,11 @@ fn exec(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
             (first, BLispExpr::Nil) => {
                 let string = collect_string(first);
                 match blisp_lexer::lex(string) {
-                    Ok(mut list) => return BLispEvalResult::TailCall(blisp_parser::parse(&mut list), env),
+                    Ok(mut list) => 
+                        match blisp_parser::parse(&mut list) {
+                            Ok(ast) => return BLispEvalResult::TailCall(ast, env.clone()),
+                            Err(error) => panic!("{}", error),
+                        }
                     Err(error) => panic!("{}", error),
                 }
             },
@@ -779,7 +791,11 @@ fn parse(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
             (first, BLispExpr::Nil) => {
                 let string = collect_string(first);
                 match blisp_lexer::lex(string) {
-                    Ok(mut list) => return BLispEvalResult::Result(blisp_parser::parse(&mut list)),
+                    Ok(mut list) => 
+                        match blisp_parser::parse(&mut list) {
+                            Ok(ast) => return BLispEvalResult::Result(ast),
+                            Err(error) => panic!("{}", error),
+                        }
                     Err(error) => panic!("{}", error),
                 }
             },

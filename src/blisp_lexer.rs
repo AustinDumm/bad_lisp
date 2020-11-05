@@ -37,23 +37,44 @@ where I: Iterator<Item = char> {
     }
 }
 
-type BLispLexResult = Result<BLispToken, BLispLexError>;
+pub type BLispTokenResult = Result<BLispToken, BLispError>;
 
-pub struct BLispLexError {
+pub enum BLispErrorType {
+    Lexing,
+    Parsing,
+    Evaluation,
+}
+
+impl std::fmt::Display for BLispErrorType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            BLispErrorType::Lexing => write!(f, "Lexing Error"),
+            BLispErrorType::Parsing => write!(f, "Parsing Error"),
+            BLispErrorType::Evaluation => write!(f, "Evaluation Error"),
+        }
+    }
+}
+
+pub struct BLispError {
+    error_type: BLispErrorType,
     message: String,
     line: i32,
     col: i32,
 }
 
-impl BLispLexError {
-    pub fn new(message: String, position: (i32, i32)) -> BLispLexError {
-        BLispLexError { message: message, line: position.0, col: position.1 }
+impl BLispError {
+    pub fn new(error_type: BLispErrorType, message: String, position: (i32, i32)) -> BLispError {
+        BLispError { error_type: error_type, message: message, line: position.0, col: position.1 }
+    }
+
+    pub fn no_position() -> (i32, i32) {
+        (0, 0)
     }
 }
 
-impl std::fmt::Display for BLispLexError {
+impl std::fmt::Display for BLispError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Error: {:<70} | {}:{}", self.message, self.line, self.col)
+        write!(f, "{}: {:<70} | {}:{}", self.error_type, self.message, self.line, self.col)
     }
 }
 
@@ -142,7 +163,7 @@ pub fn lex(raw_string: String) -> Result<VecDeque<BLispToken>, String> {
     let mut char_iterator = BLispCharacterStream::new(char_iterator);
     let mut token_list: VecDeque<BLispToken> = VecDeque::new();
     while let Some(character) = char_iterator.peek() {
-        let token_result: BLispLexResult = 
+        let token_result: BLispTokenResult = 
             match character {
                 character if character.is_whitespace() => {
                     char_iterator.next();
@@ -195,18 +216,18 @@ pub fn lex(raw_string: String) -> Result<VecDeque<BLispToken>, String> {
     Ok(token_list)
 }
 
-fn lex_delimiter<I>(iterator: &mut BLispCharacterStream<I>) -> BLispLexResult
+fn lex_delimiter<I>(iterator: &mut BLispCharacterStream<I>) -> BLispTokenResult
 where I: Iterator<Item = char> {
     let position = iterator.current_position();
     match iterator.next() {
         Some(character) if BLispTokenType::is_open_delimiter(&character) => Ok(BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::from(character)), position)),
         Some(character) if BLispTokenType::is_close_delimiter(&character) => Ok(BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::from(character)), position)),
-        Some(character) => Err(BLispLexError::new(format!("Unexpected character read as delimiter: {}", character), position)),
-        None => Err(BLispLexError::new(format!("Unexpected end to character stream while lexing delimiter"), position)),
+        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character read as delimiter: {}", character), position)),
+        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end to character stream while lexing delimiter"), position)),
     }
 }
 
-fn lex_backslash<I>(iterator: &mut BLispCharacterStream<I>) -> BLispLexResult 
+fn lex_backslash<I>(iterator: &mut BLispCharacterStream<I>) -> BLispTokenResult 
 where I: Iterator<Item = char> {
     let position = iterator.current_position();
     iterator.next();
@@ -215,12 +236,12 @@ where I: Iterator<Item = char> {
             iterator.next();
             Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Nil), position))
         }
-        Some(character) => Err(BLispLexError::new(format!("Unhandled character: \\{}", character), position)),
-        None => Err(BLispLexError::new(format!("Unexpected end of token stream after backslash"), position)),
+        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unhandled character: \\{}", character), position)),
+        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end of token stream after backslash"), position)),
     }
 }
 
-fn lex_octothorpe<I>(iterator: &mut BLispCharacterStream<I>) -> BLispLexResult
+fn lex_octothorpe<I>(iterator: &mut BLispCharacterStream<I>) -> BLispTokenResult
 where I: Iterator<Item = char> {
     let position = iterator.current_position();
     iterator.next();
@@ -234,12 +255,12 @@ where I: Iterator<Item = char> {
             Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Bool(false)), position))
         }
         Some('\\') => lex_character_literal(iterator, position),
-        Some(character) => Err(BLispLexError::new(format!("Unhandled character after octothorpe: {}", character), position)),
-        None => Err(BLispLexError::new(format!("Unexpected end of token stream after octothorpe"), position)),
+        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unhandled character after octothorpe: {}", character), position)),
+        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end of token stream after octothorpe"), position)),
     }
 }
 
-fn lex_character_literal<I>(iterator: &mut BLispCharacterStream<I>, start_position: (i32, i32)) -> BLispLexResult
+fn lex_character_literal<I>(iterator: &mut BLispCharacterStream<I>, start_position: (i32, i32)) -> BLispTokenResult
 where I: Iterator<Item = char> {
     iterator.next();
     match iterator.peek() {
@@ -248,11 +269,11 @@ where I: Iterator<Item = char> {
         Some(character) => {
             lex_character_literal_char(*character, iterator, start_position)
         },
-        None => Err(BLispLexError::new(format!("Unexpected end to character stream in character literal"), start_position)),
+        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end to character stream in character literal"), start_position)),
     }
 }
 
-fn lex_character_literal_char<I>(character: char, iterator: &mut BLispCharacterStream<I>, start_position: (i32, i32)) -> BLispLexResult
+fn lex_character_literal_char<I>(character: char, iterator: &mut BLispCharacterStream<I>, start_position: (i32, i32)) -> BLispTokenResult
 where I: Iterator<Item = char> {
     let position = iterator.current_position();
     iterator.next();
@@ -262,11 +283,11 @@ where I: Iterator<Item = char> {
         Some(next_character) if BLispTokenType::is_token_interruptor(next_character) =>
             Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Char(character)), start_position)),
         Some(next_character) => 
-            Err(BLispLexError::new(format!("Unexpected character after character literal: {}", next_character), position)),
+            Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character after character literal: {}", next_character), position)),
     }
 }
 
-fn lex_character_literal_code<I>(iterator: &mut BLispCharacterStream<I>, start_position: (i32, i32)) -> BLispLexResult
+fn lex_character_literal_code<I>(iterator: &mut BLispCharacterStream<I>, start_position: (i32, i32)) -> BLispTokenResult
 where I: Iterator<Item = char> {
     match lex_digit(false, iterator, start_position) {
         Ok(token) => {
@@ -275,10 +296,10 @@ where I: Iterator<Item = char> {
                     if let Ok(char_code) = u8::try_from(raw_number) {
                         Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Char(char::from(char_code))), start_position))
                     } else {
-                        Err(BLispLexError::new(format!("Character literal code greater than 255 found"), start_position))
+                        Err(BLispError::new(BLispErrorType::Lexing, format!("Character literal code greater than 255 found"), start_position))
                     }
                 },
-                unexpected => Err(BLispLexError::new(format!("Unexpected character found while lexing character literal code: {}", unexpected), start_position)),
+                unexpected => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character found while lexing character literal code: {}", unexpected), start_position)),
             }
         },
         error => {
@@ -287,7 +308,7 @@ where I: Iterator<Item = char> {
     }
 }
 
-fn lex_minus<I>(iterator: &mut BLispCharacterStream<I>) -> BLispLexResult
+fn lex_minus<I>(iterator: &mut BLispCharacterStream<I>) -> BLispTokenResult
 where I: Iterator<Item = char> {
     let position = iterator.current_position();
     iterator.next();
@@ -295,11 +316,11 @@ where I: Iterator<Item = char> {
         Some(character) if character.is_digit(10) || *character == '.' => lex_digit(true, iterator, position),
         None => Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol('-'.to_string())), position)),
         Some(character) if BLispTokenType::is_token_interruptor(character) => Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol('-'.to_string())), position)),
-        Some(character) => Err(BLispLexError::new(format!("Unexpected character after \'-\': {}", character), position)),
+        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character after \'-\': {}", character), position)),
     }
 }
 
-fn lex_digit<I>(is_negative: bool, iterator: &mut BLispCharacterStream<I>, start_position: (i32, i32)) -> BLispLexResult
+fn lex_digit<I>(is_negative: bool, iterator: &mut BLispCharacterStream<I>, start_position: (i32, i32)) -> BLispTokenResult
 where I: Iterator<Item = char> {
     let mut total_number: i64 = 0;
     while let Some(peeked_char) = iterator.peek() {
@@ -311,7 +332,7 @@ where I: Iterator<Item = char> {
         } else if BLispTokenType::is_token_interruptor(peeked_char) {
             break;
         } else {
-            return Err(BLispLexError::new(format!("Unexpected character trailing number: {}", peeked_char), start_position))
+            return Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character trailing number: {}", peeked_char), start_position))
         }
     }
 
@@ -323,7 +344,7 @@ where I: Iterator<Item = char> {
     Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(total_number)), start_position))
 }
 
-fn lex_floating<I>(is_negative: bool, whole_part: i64, iterator: &mut BLispCharacterStream<I>, start_position: (i32, i32)) -> BLispLexResult
+fn lex_floating<I>(is_negative: bool, whole_part: i64, iterator: &mut BLispCharacterStream<I>, start_position: (i32, i32)) -> BLispTokenResult
 where I: Iterator<Item = char> {
     let mut total_float: f64 = whole_part as f64;
     let mut divisor: f64 = 10.0;
@@ -337,7 +358,7 @@ where I: Iterator<Item = char> {
         } else if BLispTokenType::is_token_interruptor(peeked_char) {
             break;
         } else {
-            return Err(BLispLexError::new(format!("Unexpected character ending floating point: {}", peeked_char), start_position))
+            return Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character ending floating point: {}", peeked_char), start_position))
         }
     }
 
@@ -347,7 +368,7 @@ where I: Iterator<Item = char> {
     Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Float(total_float)), start_position))
 }
 
-fn lex_string_literal<I>(iterator: &mut BLispCharacterStream<I>) -> BLispLexResult
+fn lex_string_literal<I>(iterator: &mut BLispCharacterStream<I>) -> BLispTokenResult
 where I: Iterator<Item = char> {
     let position = iterator.current_position();
     iterator.next();
@@ -376,35 +397,35 @@ where I: Iterator<Item = char> {
     }
 }
 
-fn lex_quote_literal<I>(iterator: &mut BLispCharacterStream<I>) -> BLispLexResult
+fn lex_quote_literal<I>(iterator: &mut BLispCharacterStream<I>) -> BLispTokenResult
 where I: Iterator<Item = char> {
     let position = iterator.current_position();
     iterator.next();
     Ok(BLispToken::new(BLispTokenType::QuoteLiteral, position))
 }
 
-fn lex_quasiquote_literal<I>(iterator: &mut BLispCharacterStream<I>) -> BLispLexResult
+fn lex_quasiquote_literal<I>(iterator: &mut BLispCharacterStream<I>) -> BLispTokenResult
 where I: Iterator<Item = char> {
     let position = iterator.current_position();
     iterator.next();
     Ok(BLispToken::new(BLispTokenType::QuasiquoteLiteral, position))
 }
 
-fn lex_unquote_literal<I>(iterator: &mut BLispCharacterStream<I>) -> BLispLexResult
+fn lex_unquote_literal<I>(iterator: &mut BLispCharacterStream<I>) -> BLispTokenResult
 where I: Iterator<Item = char> {
     let position = iterator.current_position();
     iterator.next();
     Ok(BLispToken::new(BLispTokenType::UnquoteLiteral, position))
 }
 
-fn lex_symbol<I>(iterator: &mut BLispCharacterStream<I>) -> BLispLexResult
+fn lex_symbol<I>(iterator: &mut BLispCharacterStream<I>) -> BLispTokenResult
 where I: Iterator<Item = char> {
     let position = iterator.current_position();
     let mut symbol = "".to_string();
     while let Some(character) = iterator.peek() {
         match character {
             character if BLispTokenType::is_token_interruptor(character) => break,
-            character if BLispExpr::is_disallowed_symbol_char(*character) => return Err(BLispLexError::new(format!("Unexpected character in symbol: {}", character), position)),
+            character if BLispExpr::is_disallowed_symbol_char(*character) => return Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character in symbol: {}", character), position)),
             character => {
                 symbol.push(*character);
                 iterator.next();
