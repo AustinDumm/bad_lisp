@@ -58,23 +58,21 @@ impl std::fmt::Display for BLispErrorType {
 pub struct BLispError {
     error_type: BLispErrorType,
     message: String,
-    line: i32,
-    col: i32,
+    position: Option<(i32, i32)>,
 }
 
 impl BLispError {
-    pub fn new(error_type: BLispErrorType, message: String, position: (i32, i32)) -> BLispError {
-        BLispError { error_type: error_type, message: message, line: position.0, col: position.1 }
-    }
-
-    pub fn no_position() -> (i32, i32) {
-        (0, 0)
+    pub fn new(error_type: BLispErrorType, message: String, position: Option<(i32, i32)>) -> BLispError {
+        BLispError { error_type: error_type, message: message, position: position }
     }
 }
 
 impl std::fmt::Display for BLispError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}: {:<70} | {}:{}", self.error_type, self.message, self.line, self.col)
+        match self.position {
+            Some(position) => write!(f, "{}: {:<70} | {}:{}", self.error_type, self.message, position.0, position.1),
+            None => write!(f, "{}: {:<70}", self.error_type, self.message),
+        }
     }
 }
 
@@ -222,8 +220,8 @@ where I: Iterator<Item = char> {
     match iterator.next() {
         Some(character) if BLispTokenType::is_open_delimiter(&character) => Ok(BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::from(character)), position)),
         Some(character) if BLispTokenType::is_close_delimiter(&character) => Ok(BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::from(character)), position)),
-        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character read as delimiter: {}", character), position)),
-        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end to character stream while lexing delimiter"), position)),
+        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character read as delimiter: {}", character), Some(position))),
+        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end to character stream while lexing delimiter"), Some(position))),
     }
 }
 
@@ -236,8 +234,8 @@ where I: Iterator<Item = char> {
             iterator.next();
             Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Nil), position))
         }
-        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unhandled character: \\{}", character), position)),
-        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end of token stream after backslash"), position)),
+        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unhandled character: \\{}", character), Some(position))),
+        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end of token stream after backslash"), Some(position))),
     }
 }
 
@@ -255,8 +253,8 @@ where I: Iterator<Item = char> {
             Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Bool(false)), position))
         }
         Some('\\') => lex_character_literal(iterator, position),
-        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unhandled character after octothorpe: {}", character), position)),
-        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end of token stream after octothorpe"), position)),
+        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unhandled character after octothorpe: {}", character), Some(position))),
+        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end of token stream after octothorpe"), Some(position))),
     }
 }
 
@@ -269,7 +267,7 @@ where I: Iterator<Item = char> {
         Some(character) => {
             lex_character_literal_char(*character, iterator, start_position)
         },
-        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end to character stream in character literal"), start_position)),
+        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end to character stream in character literal"), Some(start_position))),
     }
 }
 
@@ -283,7 +281,7 @@ where I: Iterator<Item = char> {
         Some(next_character) if BLispTokenType::is_token_interruptor(next_character) =>
             Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Char(character)), start_position)),
         Some(next_character) => 
-            Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character after character literal: {}", next_character), position)),
+            Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character after character literal: {}", next_character), Some(position))),
     }
 }
 
@@ -296,10 +294,10 @@ where I: Iterator<Item = char> {
                     if let Ok(char_code) = u8::try_from(raw_number) {
                         Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Char(char::from(char_code))), start_position))
                     } else {
-                        Err(BLispError::new(BLispErrorType::Lexing, format!("Character literal code greater than 255 found"), start_position))
+                        Err(BLispError::new(BLispErrorType::Lexing, format!("Character literal code greater than 255 found"), Some(start_position)))
                     }
                 },
-                unexpected => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character found while lexing character literal code: {}", unexpected), start_position)),
+                unexpected => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character found while lexing character literal code: {}", unexpected), Some(start_position))),
             }
         },
         error => {
@@ -316,7 +314,7 @@ where I: Iterator<Item = char> {
         Some(character) if character.is_digit(10) || *character == '.' => lex_digit(true, iterator, position),
         None => Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol('-'.to_string())), position)),
         Some(character) if BLispTokenType::is_token_interruptor(character) => Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol('-'.to_string())), position)),
-        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character after \'-\': {}", character), position)),
+        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character after \'-\': {}", character), Some(position))),
     }
 }
 
@@ -332,7 +330,7 @@ where I: Iterator<Item = char> {
         } else if BLispTokenType::is_token_interruptor(peeked_char) {
             break;
         } else {
-            return Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character trailing number: {}", peeked_char), start_position))
+            return Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character trailing number: {}", peeked_char), Some(start_position)))
         }
     }
 
@@ -358,7 +356,7 @@ where I: Iterator<Item = char> {
         } else if BLispTokenType::is_token_interruptor(peeked_char) {
             break;
         } else {
-            return Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character ending floating point: {}", peeked_char), start_position))
+            return Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character ending floating point: {}", peeked_char), Some(start_position)))
         }
     }
 
@@ -425,7 +423,7 @@ where I: Iterator<Item = char> {
     while let Some(character) = iterator.peek() {
         match character {
             character if BLispTokenType::is_token_interruptor(character) => break,
-            character if BLispExpr::is_disallowed_symbol_char(*character) => return Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character in symbol: {}", character), position)),
+            character if BLispExpr::is_disallowed_symbol_char(*character) => return Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character in symbol: {}", character), Some(position))),
             character => {
                 symbol.push(*character);
                 iterator.next();
