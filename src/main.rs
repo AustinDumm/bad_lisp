@@ -13,6 +13,8 @@ mod blisp_parser;
 mod blisp_eval;
 mod blisp_func;
 
+use blisp_expr::BLispEvalResult;
+
 fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     let args: Vec<String> = env::args().collect();
 
@@ -27,7 +29,11 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
         match blisp_lexer::lex(program) {
             Ok(mut list) => 
                 match blisp_parser::parse(&mut list) {
-                    Ok(ast) => println!("{}", blisp_eval::evaluate(ast, std::rc::Rc::new(blisp_func::default_env()))),
+                    Ok(ast) => 
+                        match blisp_eval::evaluate(ast, std::rc::Rc::new(blisp_func::default_env())) {
+                            BLispEvalResult::Result(result) => println!("{}", result),
+                            BLispEvalResult::TailCall(_, _) => panic!("TailCall returned from evaluate"),
+                        }
                     Err(error) => println!("{}", error),
                 }
             Err(error) => println!("{}", error),
@@ -48,7 +54,11 @@ fn repl() {
         match blisp_lexer::lex(line) {
             Ok(mut list) => 
                 match blisp_parser::parse(&mut list) {
-                    Ok(ast) => println!("{}", blisp_eval::evaluate(ast, std::rc::Rc::new(blisp_func::default_env()))),
+                    Ok(ast) => 
+                        match blisp_eval::evaluate(ast, std::rc::Rc::new(blisp_func::default_env())) {
+                            BLispEvalResult::Result(result) => println!("{}", result),
+                            BLispEvalResult::TailCall(_, _) => panic!("TailCall returned from evaluate"),
+                        }
                     Err(error) => println!("{}", error),
                 }
             Err(error) => println!("{}", error),

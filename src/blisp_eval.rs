@@ -7,56 +7,67 @@ use crate::blisp_expr::{
     BLispEvalResult,
 };
 
-pub fn evaluate(mut expr: BLispExpr, mut env: Rc<BLispEnv>) -> BLispExpr {
+pub fn evaluate(mut expr: BLispExpr, mut env: Rc<BLispEnv>) -> BLispEvalResult {
     loop {
         match expr {
             BLispExpr::SExp(first, rest) => {
                 let first = evaluate(*first, env.clone());
                 let rest = *rest;
                 match (first, rest) {
-                    (BLispExpr::Function(fn_ptr), rest) => {
-                        let rest = evaluate_list_items(rest, env.clone());
+                    (BLispEvalResult::Result(BLispExpr::Function(fn_ptr)), rest) => {
+                        match evaluate_list_items(rest, env.clone()) {
+                            BLispEvalResult::Result(rest) => 
+                                match fn_ptr(rest, env) {
+                                    BLispEvalResult::Result(expr) => return BLispEvalResult::Result(expr),
+                                    BLispEvalResult::TailCall(next_expr, next_env) => { expr = next_expr; env = next_env; continue; }
+                                },
+                            BLispEvalResult::TailCall(_, _) => panic!("TailCall found as evaluation of function arguments")
+                        }
+                    },
+                    (BLispEvalResult::Result(BLispExpr::SpecialForm(fn_ptr)), rest) => {
                         match fn_ptr(rest, env) {
-                            BLispEvalResult::Result(expr) => return expr,
+                            BLispEvalResult::Result(expr) => return BLispEvalResult::Result(expr),
                             BLispEvalResult::TailCall(next_expr, next_env) => { expr = next_expr; env = next_env; continue; }
                         }
                     },
-                    (BLispExpr::SpecialForm(fn_ptr), rest) => {
-                        match fn_ptr(rest, env) {
-                            BLispEvalResult::Result(expr) => return expr,
-                            BLispEvalResult::TailCall(next_expr, next_env) => { expr = next_expr; env = next_env; continue; }
+                    (BLispEvalResult::Result(BLispExpr::Lambda(arg_list, next_expr, local_env)), rest) => {
+                        match evaluate_list_items(rest, env.clone()) {
+                            BLispEvalResult::Result(rest) => {
+                                expr = *next_expr;
+                                env = Rc::new(BLispEnv::bind(local_env.clone(), *arg_list, rest));
+                                continue;
+                            },
+                            BLispEvalResult::TailCall(_, _) => panic!("TailCall found as evluation of lambda arguments")
                         }
                     },
-                    (BLispExpr::Lambda(arg_list, next_expr, local_env), rest) => {
-                        let rest = evaluate_list_items(rest, env.clone());
-                        expr = *next_expr;
-                        env = Rc::new(BLispEnv::bind(local_env.clone(), *arg_list, rest));
-                        continue;
-                    },
-                    (BLispExpr::Macro(arg_list, next_expr), rest) => {
+                    (BLispEvalResult::Result(BLispExpr::Macro(arg_list, next_expr)), rest) => {
                         expr = *next_expr;
                         env = Rc::new(BLispEnv::bind(env.clone(), *arg_list, rest));
                         continue
                     },
-                    (item, _) => {
+                    (BLispEvalResult::Result(item), _) => {
                         panic!("Unapplicable first element in list: {}", item);
                     },
+                    (_, _) => {
+                        panic!("Unknown result in list");
+                    }
                 }
             },
-            BLispExpr::Symbol(string) => return env.get(&string).expect(&format!("Unbound symbol evaluated: {}", string)).clone(),
-            expr => return expr
+            BLispExpr::Symbol(string) => return BLispEvalResult::Result(env.get(&string).expect(&format!("Unbound symbol evaluated: {}", string)).clone()),
+            expr => return BLispEvalResult::Result(expr)
         }
     }
 }
 
-fn evaluate_list_items(expr: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+fn evaluate_list_items(expr: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = expr {
-        let eval_first = evaluate(*first, env.clone());
-        let eval_rest = evaluate_list_items(*rest, env.clone());
-
-        return BLispExpr::cons_sexp(eval_first, eval_rest);
+        match (evaluate(*first, env.clone()), evaluate_list_items(*rest, env.clone())) {
+            (BLispEvalResult::Result(eval_first), BLispEvalResult::Result(eval_rest)) =>
+                return BLispEvalResult::Result(BLispExpr::cons_sexp(eval_first, eval_rest)),
+            (_, _) => panic!("TailCall found as evluation of list elements"),
+        }
     } else if expr == BLispExpr::Nil {
-        return BLispExpr::Nil
+        return BLispEvalResult::Result(BLispExpr::Nil)
     }
 
     panic!("Misformed list found");

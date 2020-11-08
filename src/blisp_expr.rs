@@ -65,6 +65,7 @@ impl BLispEnv {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum BLispEvalResult {
     Result(BLispExpr),
     TailCall(BLispExpr, Rc<BLispEnv>),

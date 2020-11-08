@@ -278,13 +278,13 @@ fn not(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
 fn and(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match evaluate(first, env.clone()) {
-            BLispExpr::Bool(true) => {
+            BLispEvalResult::Result(BLispExpr::Bool(true)) => {
                 match evaluate(second, env.clone()) {
-                    BLispExpr::Bool(value) => return BLispEvalResult::TailCall(BLispExpr::Bool(value), env.clone()),
+                    BLispEvalResult::Result(BLispExpr::Bool(value)) => return BLispEvalResult::TailCall(BLispExpr::Bool(value), env.clone()),
                     _ => panic!("Second argument to \"and\" not boolean"),
                 }
             },
-            BLispExpr::Bool(false) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
+            BLispEvalResult::Result(BLispExpr::Bool(false)) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
             _ => panic!("First argument to \"and\" not boolean")
         }
     })
@@ -293,13 +293,13 @@ fn and(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
 fn or(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match evaluate(first, env.clone()) {
-            BLispExpr::Bool(false) => {
+            BLispEvalResult::Result(BLispExpr::Bool(false)) => {
                 match evaluate(second, env.clone()) {
-                    BLispExpr::Bool(value) => return BLispEvalResult::TailCall(BLispExpr::Bool(value), env.clone()),
+                    BLispEvalResult::Result(BLispExpr::Bool(value)) => return BLispEvalResult::TailCall(BLispExpr::Bool(value), env.clone()),
                     _ => panic!("Second argument to \"or\" not boolean"),
                 }
             },
-            BLispExpr::Bool(true) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
+            BLispEvalResult::Result(BLispExpr::Bool(true)) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             _ => panic!("First argument to \"and\" not boolean")
         }
     })
@@ -534,9 +534,9 @@ fn if_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
             if let BLispExpr::SExp(second, rest) = *rest {
                 if *rest == BLispExpr::Nil {
                     match evaluate(*predicate, env.clone()) {
-                        BLispExpr::Bool(true) => return BLispEvalResult::TailCall(*first, env),
-                        BLispExpr::Bool(false) => return BLispEvalResult::TailCall(*second, env),
-                        result => panic!("First argument to \"if\" must evaluate to boolean: {} found", result)
+                        BLispEvalResult::Result(BLispExpr::Bool(true)) => return BLispEvalResult::TailCall(*first, env),
+                        BLispEvalResult::Result(BLispExpr::Bool(false)) => return BLispEvalResult::TailCall(*second, env),
+                        result => panic!("First argument to \"if\" must evaluate to boolean: {:?} found", result)
                     }
                 }
             }
@@ -550,7 +550,12 @@ fn bind_single_binding(binding: BLispExpr, eval_env: Rc<BLispEnv>, env: &mut BLi
     if let BLispExpr::SExp(symbol, rest) = binding {
         if let BLispExpr::SExp(value, rest) = *rest {
             match (*symbol, *value, *rest) {
-                (BLispExpr::Symbol(name), value, BLispExpr::Nil) => { let value = evaluate(value, eval_env); env.insert(name, value); return }
+                (BLispExpr::Symbol(name), value, BLispExpr::Nil) => { 
+                    match evaluate(value, eval_env) {
+                        BLispEvalResult::Result(value) => env.insert(name, value),
+                        BLispEvalResult::TailCall(_, _) => panic!("TailCall found as result to binding list expr"),
+                    }
+                }
                 (_, _, _) => panic!("Binding must be two element list with first element being a symbol"),
             }
         }
@@ -610,10 +615,14 @@ fn dyn_let(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
      if let BLispExpr::SExp(binding_expr, rest) = args {
         if let BLispExpr::SExp(expr, rest) = *rest {
             if *rest == BLispExpr::Nil {
-                let binding_list = evaluate(*binding_expr, env.clone());
-                let child_env = BLispEnv::extend(env.clone());
-                let child_env = bind_from_seq_binding_list(binding_list, child_env);
-                return BLispEvalResult::TailCall(*expr, Rc::new(child_env))
+                match evaluate(*binding_expr, env.clone()) {
+                    BLispEvalResult::Result(binding_list) => {
+                        let child_env = BLispEnv::extend(env.clone());
+                        let child_env = bind_from_seq_binding_list(binding_list, child_env);
+                        return BLispEvalResult::TailCall(*expr, Rc::new(child_env))
+                    },
+                    BLispEvalResult::TailCall(_, _) => panic!("TailCall found as result of dyn-let binding"),
+                }
             }
         }
     }
@@ -703,7 +712,7 @@ pub fn quote(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
 }
 
 pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
-    fn quasi_list_item(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+    fn quasi_list_item(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
         if let BLispExpr::SExp(first, arg_list) = args.clone() {
             if *first == BLispExpr::Symbol(String::from("unquote")) {
                 if let BLispExpr::SExp(arg, nil) = *arg_list {
@@ -717,16 +726,19 @@ pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
             }
         }
 
-        args
+        BLispEvalResult::Result(args)
     }
 
-    fn quasi_list(args: BLispExpr, env: Rc<BLispEnv>) -> BLispExpr {
+    fn quasi_list(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
         if let BLispExpr::SExp(first, rest) = args.clone() {
             if *first == BLispExpr::Symbol(String::from("unquote")) {
                 quasi_list_item(args, env)
             } else {
-                let item = quasi_list_item(*first, env.clone());
-                BLispExpr::cons_sexp(item, quasi_list(*rest, env.clone()))
+                match (quasi_list_item(*first, env.clone()), quasi_list(*rest, env.clone())) {
+                    (BLispEvalResult::Result(item), BLispEvalResult::Result(rest)) => BLispEvalResult::Result(BLispExpr::cons_sexp(item, rest)),
+                    (BLispEvalResult::TailCall(_, _), _) |
+                        (_, BLispEvalResult::TailCall(_, _)) => panic!("TailCall returned as result of quasiquoted list"),
+                }
             }
         } else {
             quasi_list_item(args, env.clone())
@@ -735,7 +747,12 @@ pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
 
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
-            (first, BLispExpr::Nil) => return BLispEvalResult::Result(quasi_list(first, env)),
+            (first, BLispExpr::Nil) => {
+                match quasi_list(first, env) {
+                    BLispEvalResult::Result(item) => return BLispEvalResult::Result(item),
+                    BLispEvalResult::TailCall(_, _) => panic!("TailCall returned as a result of quasiquoted list"),
+                }
+            },
             (_, _) => panic!("Quasiquote can only take single argument")
         }
     }
