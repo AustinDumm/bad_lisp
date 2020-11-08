@@ -11,7 +11,11 @@ use crate::blisp_expr::{
     BLispEvalResult,
 };
 
-use crate::blisp_lexer;
+use crate::blisp_lexer::{
+    self,
+    BLispError,
+    BLispErrorType,
+};
 
 use crate::blisp_eval::evaluate;
 use crate::blisp_parser::{
@@ -29,7 +33,7 @@ where F: Fn(BLispExpr, BLispExpr) -> BLispEvalResult {
             }
         }
     }
-    panic!("Predicates must take 2 arguments")
+    return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Predicates must take 2 arguments"), None))
 }
 
 fn exit(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -37,14 +41,14 @@ fn exit(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         if *rest == BLispExpr::Nil {
             match *first {
                 BLispExpr::Number(value) => std::process::exit(value.try_into().expect("Exit code given too large to fit into 32 bits")),
-                _ => panic!("Invalid code given to exit"),
+                _ => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Invalid code given to exit"), None)),
             }
         }
     } else if args == BLispExpr::Nil {
         std::process::exit(0);
     }
 
-    panic!("Malformed arguments list given to exit");
+    return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed arguments list given to exit"), None))
 }
 
 fn seq(mut args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -56,7 +60,7 @@ fn seq(mut args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         }
     }
     
-    panic!("Malformed list given to sequence");
+    return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to sequence"), None))
 }
 
 fn collect_string(mut string_expr: BLispExpr) -> String {
@@ -64,7 +68,7 @@ fn collect_string(mut string_expr: BLispExpr) -> String {
     while let BLispExpr::SExp(first, rest) = string_expr {
         match (*first, *rest) {
             (BLispExpr::Char(character), rest) => { output += &String::from(character); string_expr = rest; },
-            (first, rest) => panic!("Expected list of characters ({} . {})", first, rest),
+            (first, rest) => panic!("Expected list of characters ({} . {})", first, rest)
         }
     }
 
@@ -81,13 +85,13 @@ fn cons(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         }
     }
 
-    panic!("cons must take exactly two arguments");
+    return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("cons must take exactly two arguments"), None))
 }
 
 fn list(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     match args {
         BLispExpr::SExp(_, _) => return BLispEvalResult::Result(args),
-        _ => panic!("Misformed argument list given to list"),
+        _ => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Misformed argument list given to list"), None))
     }
 }
 
@@ -97,9 +101,9 @@ fn first(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         if let BLispExpr::SExp(first, _) = *arg {
             return BLispEvalResult::Result(*first)
         }
-        panic!("\"first\" passed argument that is not a list: {}", arg);
+        return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("\"first\" passed argument that is not a list: {}", arg), None))
     }
-    panic!("first must take list argument");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("first must take list argument"), None))
 }
 
 fn rest(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -107,9 +111,9 @@ fn rest(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         if let BLispExpr::SExp(_, rest) = *arg {
             return BLispEvalResult::Result(*rest)
         }
-        panic!("rest given argument: {}", arg);
+        return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("rest given argument: {}", arg), None))
     }
-    panic!("rest must take list argument");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("rest must take list argument"), None))
 }
 
 //=============== Numerical Operations ===============
@@ -118,10 +122,10 @@ fn incr(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::Number(num), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Number(num + 1)),
             (BLispExpr::Float(float), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Float(float + 1.0)),
-            (_, _) => panic!("incr only takes a single numerical argument")
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("incr only takes a single numerical argument"), None))
         }
     }
-    panic!("Malformed argument list to incr")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed argument list to incr"), None))
 }
 
 fn decr(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -129,10 +133,10 @@ fn decr(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::Number(num), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Number(num - 1)),
             (BLispExpr::Float(float), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Float(float - 1.0)),
-            (_, _) => panic!("incr only takes a single numerical argument")
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("incr only takes a single numerical argument"), None))
         }
     }
-    panic!("Malformed argument list to incr")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed argument list to incr"), None))
 }
 
 fn abs(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -140,10 +144,10 @@ fn abs(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::Number(num), BLispExpr::Nil) => BLispEvalResult::Result(BLispExpr::Number(num.abs())),
             (BLispExpr::Float(float), BLispExpr::Nil) => BLispEvalResult::Result(BLispExpr::Float(float.abs())),
-            (_, _) => panic!("abs only takes a single numberical argument"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("abs only takes a single numberical argument"), None))
         }
     } else {
-        panic!("Malformed argument list to abs")
+        BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed argument list to abs"), None))
     }
 }
 
@@ -152,10 +156,10 @@ fn sign(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::Number(num), BLispExpr::Nil) => BLispEvalResult::Result(BLispExpr::Number(num.signum())),
             (BLispExpr::Float(float), BLispExpr::Nil) => BLispEvalResult::Result(BLispExpr::Float(float.signum())),
-            (_, _) => panic!("abs only takes a single numberical argument"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("abs only takes a single numberical argument"), None))
         }
     } else {
-        panic!("Malformed argument list to abs")
+        BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed argument list to abs"), None))
     }
 }
 
@@ -168,13 +172,13 @@ fn add(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
                     (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Float(first + second as f64)),
                     (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first as f64 + second)),
                     (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first + second)),
-                    (_, _) => panic!("Unexpected types to add"),
+                    (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to add"), None))
                 }
             }
         }
     }
 
-    panic!("Add expects two arguments");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Add expects two arguments"), None))
 }
 
 fn sub(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -186,13 +190,13 @@ fn sub(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
                     (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Float(first - second as f64)),
                     (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first as f64 - second)),
                     (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first - second)),
-                    (_, _) => panic!("Unexpected types to sub"),
+                    (_, _) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to sub"), None))
                 }
             }
         }
     }
 
-    panic!("Add expects two arguments");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Add expects two arguments"), None))
 }
 
 fn mul(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -204,13 +208,13 @@ fn mul(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
                     (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Float(first * second as f64)),
                     (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first as f64 * second)),
                     (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first * second)),
-                    (first, second) => panic!("Unexpected types to mul (* {} {})", first, second),
+                    (first, second) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to mul (* {} {})", first, second), None))
                 }
             }
         }
     }
 
-    panic!("Add expects two arguments");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Add expects two arguments"), None))
 }
 
 fn int_div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -222,13 +226,13 @@ fn int_div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
                     (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Float(first / second as f64)),
                     (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first as f64 / second)),
                     (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first / second)),
-                    (_, _) => panic!("Unexpected types to int div"),
+                    (_, _) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to int div"), None))
                 }
             }
         }
     }
 
-    panic!("Add expects two arguments");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Add expects two arguments"), None))
 }
 
 fn div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -240,13 +244,13 @@ fn div(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
                     (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Float(first / second as f64)),
                     (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first as f64 / second)),
                     (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first / second)),
-                    (_, _) => panic!("Unexpected types to div"),
+                    (_, _) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to div"), None))
                 }
             }
         }
     }
 
-    panic!("Add expects two arguments");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Add expects two arguments"), None))
 }
 
 fn modulo(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -255,13 +259,13 @@ fn modulo(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
             if *rest == BLispExpr::Nil {
                 return match (*first, *second) {
                     (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispEvalResult::Result(BLispExpr::Number(first % second)),
-                    (_, _) => panic!("Unexpected types to modulo"),
+                    (_, _) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to modulo"), None))
                 }
             }
         }
     }
 
-    panic!("Add expects two arguments");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Add expects two arguments"), None))
 }
 
 //=============== Logical Operators ===============
@@ -269,10 +273,10 @@ fn not(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
             (BLispExpr::Bool(value), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(!value)),
-            (first, rest) => panic!("not must take single, boolean argument ({} . {})", first, rest),
+            (first, rest) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("not must take single, boolean argument ({} . {})", first, rest), None))
         }
     }
-    panic!("Malformed argument give to not");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed argument give to not"), None))
 }
 
 fn and(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -281,11 +285,11 @@ fn and(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
             BLispEvalResult::Result(BLispExpr::Bool(true)) => {
                 match evaluate(second, env.clone()) {
                     BLispEvalResult::Result(BLispExpr::Bool(value)) => return BLispEvalResult::TailCall(BLispExpr::Bool(value), env.clone()),
-                    _ => panic!("Second argument to \"and\" not boolean"),
+                    _ => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Second argument to \"and\" not boolean"), None))
                 }
             },
             BLispEvalResult::Result(BLispExpr::Bool(false)) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
-            _ => panic!("First argument to \"and\" not boolean")
+            _ => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("First argument to \"and\" not boolean"), None))
         }
     })
 }
@@ -296,11 +300,11 @@ fn or(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
             BLispEvalResult::Result(BLispExpr::Bool(false)) => {
                 match evaluate(second, env.clone()) {
                     BLispEvalResult::Result(BLispExpr::Bool(value)) => return BLispEvalResult::TailCall(BLispExpr::Bool(value), env.clone()),
-                    _ => panic!("Second argument to \"or\" not boolean"),
+                    _ => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Second argument to \"or\" not boolean"), None))
                 }
             },
             BLispEvalResult::Result(BLispExpr::Bool(true)) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
-            _ => panic!("First argument to \"and\" not boolean")
+            _ => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("First argument to \"and\" not boolean"), None))
         }
     })
 }
@@ -309,7 +313,7 @@ fn xor(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match (first, second) {
             (BLispExpr::Bool(first), BLispExpr::Bool(second)) => return BLispEvalResult::Result(BLispExpr::Bool((first || second) && !(first && second))),
-            (_, _) => panic!("\"and\" predicate must be given to boolean arguments"),
+            (_, _) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("\"and\" predicate must be given to boolean arguments"), None))
         }
     })
 }
@@ -319,18 +323,18 @@ fn b_not(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
             (BLispExpr::Number(value), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Number(!value)),
-            (_, _) => panic!("Bitwise not must recieve single Number as argument")
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Bitwise not must recieve single Number as argument"), None))
         }
     }
 
-    panic!("Malformed list given to bitwise not");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to bitwise not"), None))
 }
 
 fn b_and(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match (first, second) {
             (BLispExpr::Number(first), BLispExpr::Number(second)) => return BLispEvalResult::Result(BLispExpr::Number(first & second)),
-            (_, _) => panic!("Bitwise and must take two Number arguements"),
+            (_, _) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Bitwise and must take two Number arguements"), None))
         }
     })
 }
@@ -339,7 +343,7 @@ fn b_or(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match (first, second) {
             (BLispExpr::Number(first), BLispExpr::Number(second)) => return BLispEvalResult::Result(BLispExpr::Number(first | second)),
-            (_, _) => panic!("Bitwise and must take two Number arguements"),
+            (_, _) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Bitwise and must take two Number arguements"), None))
         }
     })
 }
@@ -348,7 +352,7 @@ fn b_xor(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     apply_predicate(args, |first, second| {
         match (first, second) {
             (BLispExpr::Number(first), BLispExpr::Number(second)) => return BLispEvalResult::Result(BLispExpr::Number(first ^ second)),
-            (_, _) => panic!("Bitwise and must take two Number arguements"),
+            (_, _) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Bitwise and must take two Number arguements"), None))
         }
     })
 }
@@ -359,10 +363,10 @@ fn is_nil(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::Nil, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
-            (_, _) => panic!("Too many arguments provided to Nil check"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Too many arguments provided to Nil check"), None))
         }
     }
-    panic!("Malformed list given to Nil check")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to Nil check"), None))
 }
 
 fn is_bool(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -370,10 +374,10 @@ fn is_bool(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::Bool(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
-            (_, _) => panic!("Too many arguments provided to Bool check"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Too many arguments provided to Bool check"), None))
         }
     }
-    panic!("Malformed list given to Bool check")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to Bool check"), None))
 }
 
 fn is_number(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -381,10 +385,10 @@ fn is_number(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::Number(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
-            (_, _) => panic!("Too many arguments provided to Number check"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Too many arguments provided to Number check"), None))
         }
     }
-    panic!("Malformed list given to Number check")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to Number check"), None))
 }
 
 fn is_float(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -392,10 +396,10 @@ fn is_float(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::Float(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
-            (_, _) => panic!("Too many arguments provided to Float check"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Too many arguments provided to Float check"), None))
         }
     }
-    panic!("Malformed list given to Float check")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to Float check"), None))
 }
 
 fn is_char(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -403,10 +407,10 @@ fn is_char(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::Char(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
-            (_, _) => panic!("Too many arguments provided to Char check"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Too many arguments provided to Char check"), None)),
         }
     }
-    panic!("Malformed list given to Char check")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to Char check"), None))
 }
 
 fn is_symbol(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -414,10 +418,10 @@ fn is_symbol(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::Symbol(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
-            (_, _) => panic!("Too many arguments provided to Symbol check"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Too many arguments provided to Symbol check"), None))
         }
     }
-    panic!("Malformed list given to Symbol check")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to Symbol check"), None))
 }
 
 fn is_applicable(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -428,10 +432,10 @@ fn is_applicable(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
             (BLispExpr::Lambda(_, _, _), BLispExpr::Nil) |
             (BLispExpr::Macro(_, _), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
-            (_, _) => panic!("Too many arguments provided to Applicable check"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Too many arguments provided to Applicable check"), None))
         }
     }
-    panic!("Malformed list given to Applicable check")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to Applicable check"), None))
 }
 
 fn is_special_form(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -439,10 +443,10 @@ fn is_special_form(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::SpecialForm(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
-            (_, _) => panic!("Too many arguments provided to Special Form check"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Too many arguments provided to Special Form check"), None))
         }
     }
-    panic!("Malformed list given to Special Form check")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to Special Form check"), None))
 }
 
 fn is_function(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -450,10 +454,10 @@ fn is_function(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::Function(_), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
-            (_, _) => panic!("Too many arguments provided to Function check"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Too many arguments provided to Function check"), None))
         }
     }
-    panic!("Malformed list given to Function check")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to Function check"), None))
 }
 
 fn is_list(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -461,10 +465,10 @@ fn is_list(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         match (*first, *rest) {
             (BLispExpr::SExp(_, _), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
             (_, BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
-            (_, _) => panic!("Too many arguments provided to List check"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Too many arguments provided to List check"), None))
         }
     }
-    panic!("Malformed list given to List check")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to List check"), None))
 }
 //=============== Comparison Predicates ===============
 fn eq(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -486,7 +490,7 @@ fn lt(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
             (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Bool(first < second as f64)),
             (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool((first as f64) < second)),
             (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool(first < second)),
-            (_, _) => panic!("Incompatible types given to less than"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Incompatible types given to less than"), None))
         }
     })
 }
@@ -498,7 +502,7 @@ fn lte(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
             (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Bool(first <= second as f64)),
             (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool((first as f64) <= second)),
             (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool(first <= second)),
-            (_, _) => panic!("Incompatible types given to less than"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Incompatible types given to less than"), None))
         }
     })
 }
@@ -510,7 +514,7 @@ fn gt(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
             (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Bool(first > second as f64)),
             (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool((first as f64) > second)),
             (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool(first > second)),
-            (_, _) => panic!("Incompatible types given to less than"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Incompatible types given to less than"), None))
         }
     })
 }
@@ -522,7 +526,7 @@ fn gte(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
             (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Bool(first >= second as f64)),
             (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool((first as f64) >= second)),
             (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Bool(first >= second)),
-            (_, _) => panic!("Incompatible types given to less than"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Incompatible types given to less than"), None))
         }
     })
 }
@@ -536,14 +540,14 @@ fn if_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
                     match evaluate(*predicate, env.clone()) {
                         BLispEvalResult::Result(BLispExpr::Bool(true)) => return BLispEvalResult::TailCall(*first, env),
                         BLispEvalResult::Result(BLispExpr::Bool(false)) => return BLispEvalResult::TailCall(*second, env),
-                        result => panic!("First argument to \"if\" must evaluate to boolean: {:?} found", result)
+                        result => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("First argument to \"if\" must evaluate to boolean: {:?} found", result), None))
                     }
                 }
             }
         }
     }
     
-    panic!("if requires predicate and two more arguments")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("if requires predicate and two more arguments"), None))
 }
 
 fn bind_single_binding(binding: BLispExpr, eval_env: Rc<BLispEnv>, env: &mut BLispEnv) {
@@ -553,7 +557,7 @@ fn bind_single_binding(binding: BLispExpr, eval_env: Rc<BLispEnv>, env: &mut BLi
                 (BLispExpr::Symbol(name), value, BLispExpr::Nil) => { 
                     match evaluate(value, eval_env) {
                         BLispEvalResult::Result(value) => env.insert(name, value),
-                        BLispEvalResult::Error(error) => panic!("Error found evaluating let binding"),
+                        BLispEvalResult::Error(error) => panic!("{}", error),
                         BLispEvalResult::TailCall(_, _) => panic!("TailCall found as result to binding list expr"),
                     }
                 }
@@ -595,7 +599,7 @@ fn let_impl(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
         }
     }
 
-    panic!("let requires list of bindings and single expr to execute with bindings. \nFound: {}", args)
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("let requires list of bindings and single expr to execute with bindings. \nFound: {}", args), None))
 }
 
 fn let_seq(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -609,7 +613,7 @@ fn let_seq(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
         }
     }
 
-    panic!("let* requires list of bindings and single expr to execute with bindings")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("let* requires list of bindings and single expr to execute with bindings"), None))
 }
 
 fn dyn_let(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -623,13 +627,13 @@ fn dyn_let(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
                         return BLispEvalResult::TailCall(*expr, Rc::new(child_env))
                     },
                     BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
-                    BLispEvalResult::TailCall(_, _) => panic!("TailCall found as result of dyn-let binding"),
+                    BLispEvalResult::TailCall(_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found as result of dyn-let binding"), None))
                 }
             }
         }
     }
 
-    panic!("dyn-let requires list of bindings and single expr to execute with bindings")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("dyn-let requires list of bindings and single expr to execute with bindings"), None))
 }
 
 fn load(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -641,15 +645,15 @@ fn load(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
                     Ok(mut list) => 
                         match blisp_parser::parse(&mut list) {
                             Ok(ast) => return BLispEvalResult::TailCall(ast, env.clone()),
-                            Err(error) => panic!("{}", error),
+                            Err(error) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("{}", error), None))
                         }
-                    Err(error) => panic!("{}", error),
+                    Err(error) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("{}", error), None))
                 }
             },
-            (_, _) => panic!("Load must take single filename argument"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Load must take single filename argument"), None))
         }
     }
-    panic!("Malformed list passed to load");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list passed to load"), None))
 }
 
 //=============== Lambda Creation ===============
@@ -662,7 +666,7 @@ fn lambda(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
         }
     }
 
-    panic!("Malformed arguments given to lambda")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed arguments given to lambda"), None))
 }
 
 //=============== Input/Output ===============
@@ -673,7 +677,7 @@ fn print_std(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
             return BLispEvalResult::Result(BLispExpr::Bool(true));
         }
     }
-    panic!("Malformed list given to print")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to print"), None))
 }
 
 fn debug(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -683,7 +687,7 @@ fn debug(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
             return BLispEvalResult::Result(BLispExpr::Bool(true));
         }
     }
-    panic!("Malformed argument given to debug")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed argument given to debug"), None))
 }
 
 fn read_std(_args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -695,9 +699,9 @@ fn read_std(_args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
         Ok(mut list) => 
             match parse_string_literal(&mut list) {
                 Ok(parsed) => BLispEvalResult::TailCall(parsed, env.clone()),
-                Err(error) => panic!("{}", error),
+                Err(error) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("{}", error), None))
             }
-        Err(error) => panic!("{}", error),
+        Err(error) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("{}", error), None))
     }
 }
 
@@ -706,10 +710,10 @@ pub fn quote(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
             (first, BLispExpr::Nil) => BLispEvalResult::Result(first),
-            (_, _) => panic!("quote must take single argument"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("quote must take single argument"), None))
         }
     } else {
-        panic!("Malformed list given to quote")
+        BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to quote"), None))
     }
 }
 
@@ -722,7 +726,7 @@ pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
                         return evaluate(*arg, env.clone());
                     }
                 }
-                panic!("unquote must take single argument");
+                return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("unquote must take single argument"), None))
             } else {
                 return quasi_list(args, env)
             }
@@ -741,7 +745,7 @@ pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
                     (BLispEvalResult::Error(error), _) |
                         (_, BLispEvalResult::Error(error)) => return BLispEvalResult::Error(error),
                     (BLispEvalResult::TailCall(_, _), _) |
-                        (_, BLispEvalResult::TailCall(_, _)) => panic!("TailCall returned as result of quasiquoted list"),
+                        (_, BLispEvalResult::TailCall(_, _)) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall returned as result of quasiquoted list"), None))
                 }
             }
         } else {
@@ -755,13 +759,13 @@ pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
                 match quasi_list(first, env) {
                     BLispEvalResult::Result(item) => return BLispEvalResult::Result(item),
                     BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
-                    BLispEvalResult::TailCall(_, _) => panic!("TailCall returned as a result of quasiquoted list"),
+                    BLispEvalResult::TailCall(_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall returned as a result of quasiquoted list"), None))
                 }
             },
-            (_, _) => panic!("Quasiquote can only take single argument")
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Quasiquote can only take single argument"), None))
         }
     }
-    panic!("Malformed list given to quasiquote")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to quasiquote"), None))
 }
 
 fn def_macro(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -773,17 +777,17 @@ fn def_macro(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
         }
     }
 
-    panic!("Malformed arguments given to macro")
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed arguments given to macro"), None))
 }
 
 fn eval(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args {
         match (*first, *rest) {
             (first, BLispExpr::Nil) => BLispEvalResult::TailCall(first, env),
-            (_, _) => panic!("eval must take single argument"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("eval must take single argument"), None))
         }
     } else {
-        panic!("Malformed list given to quote")
+        BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to quote"), None))
     }
 }
 
@@ -796,15 +800,15 @@ fn exec(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
                     Ok(mut list) => 
                         match blisp_parser::parse(&mut list) {
                             Ok(ast) => return BLispEvalResult::TailCall(ast, env.clone()),
-                            Err(error) => panic!("{}", error),
+                            Err(error) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("{}", error), None))
                         }
-                    Err(error) => panic!("{}", error),
+                    Err(error) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("{}", error), None))
                 }
             },
-            (_, _) => panic!("Single argument must be passed to exec")
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Single argument must be passed to exec"), None))
         }
     }
-    panic!("Malformed string given to exec");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed string given to exec"), None))
 }
 
 fn parse(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
@@ -816,15 +820,15 @@ fn parse(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
                     Ok(mut list) => 
                         match blisp_parser::parse(&mut list) {
                             Ok(ast) => return BLispEvalResult::Result(ast),
-                            Err(error) => panic!("{}", error),
+                            Err(error) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("{}", error), None))
                         }
-                    Err(error) => panic!("{}", error),
+                    Err(error) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("{}", error), None))
                 }
             },
-            (_, _) => panic!("Single argument must be passed to exec")
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Single argument must be passed to exec"), None))
         }
     }
-    panic!("Malformed string given to exec");
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed string given to exec"), None))
 }
 
 //=============== Default Environment ===============

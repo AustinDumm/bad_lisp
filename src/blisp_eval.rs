@@ -7,6 +7,11 @@ use crate::blisp_expr::{
     BLispEvalResult,
 };
 
+use crate::blisp_lexer::{
+    BLispError,
+    BLispErrorType,
+};
+
 pub fn evaluate(mut expr: BLispExpr, mut env: Rc<BLispEnv>) -> BLispEvalResult {
     loop {
         match expr {
@@ -23,7 +28,8 @@ pub fn evaluate(mut expr: BLispExpr, mut env: Rc<BLispEnv>) -> BLispEvalResult {
                                     BLispEvalResult::TailCall(next_expr, next_env) => { expr = next_expr; env = next_env; continue; }
                                 },
                             BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
-                            BLispEvalResult::TailCall(_, _) => panic!("TailCall found as evaluation of function arguments")
+                            BLispEvalResult::TailCall(_, _) =>
+                                return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found as evaluation of function arguments"), None)),
                         }
                     },
                     (BLispEvalResult::Result(BLispExpr::SpecialForm(fn_ptr)), rest) => {
@@ -41,7 +47,7 @@ pub fn evaluate(mut expr: BLispExpr, mut env: Rc<BLispEnv>) -> BLispEvalResult {
                                 continue;
                             },
                             BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
-                            BLispEvalResult::TailCall(_, _) => panic!("TailCall found as evluation of lambda arguments")
+                            BLispEvalResult::TailCall(_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found as evluation of lambda arguments"), None)),
                         }
                     },
                     (BLispEvalResult::Result(BLispExpr::Macro(arg_list, next_expr)), rest) => {
@@ -50,10 +56,10 @@ pub fn evaluate(mut expr: BLispExpr, mut env: Rc<BLispEnv>) -> BLispEvalResult {
                         continue
                     },
                     (BLispEvalResult::Result(item), _) => {
-                        panic!("Unapplicable first element in list: {}", item);
+                        return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unapplicable first element in list: {}", item), None))
                     },
                     (_, _) => {
-                        panic!("Unknown result in list");
+                        return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unknown result in list"), None))
                     }
                 }
             },
@@ -68,13 +74,13 @@ fn evaluate_list_items(expr: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
         match (evaluate(*first, env.clone()), evaluate_list_items(*rest, env.clone())) {
             (BLispEvalResult::Result(eval_first), BLispEvalResult::Result(eval_rest)) =>
                 return BLispEvalResult::Result(BLispExpr::cons_sexp(eval_first, eval_rest)),
-            (_, _) => panic!("TailCall found as evluation of list elements"),
+            (_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found as evluation of list elements"), None)),
         }
     } else if expr == BLispExpr::Nil {
         return BLispEvalResult::Result(BLispExpr::Nil)
     }
 
-    panic!("Misformed list found");
+    return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Misformed list found"), None))
 }
 
 #[cfg(test)]
