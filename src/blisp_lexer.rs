@@ -39,6 +39,7 @@ where I: Iterator<Item = char> {
 
 pub type BLispTokenResult = Result<BLispToken, BLispError>;
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum BLispErrorType {
     Lexing,
     Parsing,
@@ -55,6 +56,7 @@ impl std::fmt::Display for BLispErrorType {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct BLispError {
     error_type: BLispErrorType,
     message: String,

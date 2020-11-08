@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
+use crate::blisp_lexer::BLispError;
 
 type BLispEnvMap = HashMap<String, BLispExpr>;
 
@@ -69,6 +70,7 @@ impl BLispEnv {
 pub enum BLispEvalResult {
     Result(BLispExpr),
     TailCall(BLispExpr, Rc<BLispEnv>),
+    Error(BLispError),
 }
 
 #[derive(Debug, PartialEq, Clone)]

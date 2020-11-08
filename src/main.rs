@@ -32,6 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
                     Ok(ast) => 
                         match blisp_eval::evaluate(ast, std::rc::Rc::new(blisp_func::default_env())) {
                             BLispEvalResult::Result(result) => println!("{}", result),
+                            BLispEvalResult::Error(error) => println!("{}", error),
                             BLispEvalResult::TailCall(_, _) => panic!("TailCall returned from evaluate"),
                         }
                     Err(error) => println!("{}", error),
@@ -57,6 +58,7 @@ fn repl() {
                     Ok(ast) => 
                         match blisp_eval::evaluate(ast, std::rc::Rc::new(blisp_func::default_env())) {
                             BLispEvalResult::Result(result) => println!("{}", result),
+                            BLispEvalResult::Error(error) => println!("{}", error),
                             BLispEvalResult::TailCall(_, _) => panic!("TailCall returned from evaluate"),
                         }
                     Err(error) => println!("{}", error),

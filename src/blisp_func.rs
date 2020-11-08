@@ -553,6 +553,7 @@ fn bind_single_binding(binding: BLispExpr, eval_env: Rc<BLispEnv>, env: &mut BLi
                 (BLispExpr::Symbol(name), value, BLispExpr::Nil) => { 
                     match evaluate(value, eval_env) {
                         BLispEvalResult::Result(value) => env.insert(name, value),
+                        BLispEvalResult::Error(error) => panic!("Error found evaluating let binding"),
                         BLispEvalResult::TailCall(_, _) => panic!("TailCall found as result to binding list expr"),
                     }
                 }
@@ -621,6 +622,7 @@ fn dyn_let(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
                         let child_env = bind_from_seq_binding_list(binding_list, child_env);
                         return BLispEvalResult::TailCall(*expr, Rc::new(child_env))
                     },
+                    BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
                     BLispEvalResult::TailCall(_, _) => panic!("TailCall found as result of dyn-let binding"),
                 }
             }
@@ -736,6 +738,8 @@ pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
             } else {
                 match (quasi_list_item(*first, env.clone()), quasi_list(*rest, env.clone())) {
                     (BLispEvalResult::Result(item), BLispEvalResult::Result(rest)) => BLispEvalResult::Result(BLispExpr::cons_sexp(item, rest)),
+                    (BLispEvalResult::Error(error), _) |
+                        (_, BLispEvalResult::Error(error)) => return BLispEvalResult::Error(error),
                     (BLispEvalResult::TailCall(_, _), _) |
                         (_, BLispEvalResult::TailCall(_, _)) => panic!("TailCall returned as result of quasiquoted list"),
                 }
@@ -750,6 +754,7 @@ pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
             (first, BLispExpr::Nil) => {
                 match quasi_list(first, env) {
                     BLispEvalResult::Result(item) => return BLispEvalResult::Result(item),
+                    BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
                     BLispEvalResult::TailCall(_, _) => panic!("TailCall returned as a result of quasiquoted list"),
                 }
             },

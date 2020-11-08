@@ -19,14 +19,17 @@ pub fn evaluate(mut expr: BLispExpr, mut env: Rc<BLispEnv>) -> BLispEvalResult {
                             BLispEvalResult::Result(rest) => 
                                 match fn_ptr(rest, env) {
                                     BLispEvalResult::Result(expr) => return BLispEvalResult::Result(expr),
+                                    BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
                                     BLispEvalResult::TailCall(next_expr, next_env) => { expr = next_expr; env = next_env; continue; }
                                 },
+                            BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
                             BLispEvalResult::TailCall(_, _) => panic!("TailCall found as evaluation of function arguments")
                         }
                     },
                     (BLispEvalResult::Result(BLispExpr::SpecialForm(fn_ptr)), rest) => {
                         match fn_ptr(rest, env) {
                             BLispEvalResult::Result(expr) => return BLispEvalResult::Result(expr),
+                            BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
                             BLispEvalResult::TailCall(next_expr, next_env) => { expr = next_expr; env = next_env; continue; }
                         }
                     },
@@ -37,6 +40,7 @@ pub fn evaluate(mut expr: BLispExpr, mut env: Rc<BLispEnv>) -> BLispEvalResult {
                                 env = Rc::new(BLispEnv::bind(local_env.clone(), *arg_list, rest));
                                 continue;
                             },
+                            BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
                             BLispEvalResult::TailCall(_, _) => panic!("TailCall found as evluation of lambda arguments")
                         }
                     },
