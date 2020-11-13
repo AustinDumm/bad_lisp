@@ -46,17 +46,22 @@ impl BLispEnv {
                 (BLispExpr::Nil, bind) => return Err(format!("Too many arguments to bind: {}", bind)),
                 (bind, BLispExpr::Nil) => return Err(format!("Too few arguments to bind: {}", bind)),
                 (names, values) => {
-                    if let (BLispExpr::SExp(name, name_rest), BLispExpr::SExp(value, value_rest)) = (names, values) {
-                        match (*name, *value) {
-                            (BLispExpr::Symbol(name), value) => {
-                                args_list = *name_rest;
-                                args = *value_rest;
-                                new_env.insert(name, value)
-                            },
-                            (_, _) => panic!("Argument names must be of type Symbol"),
-                        }
-                    } else {
-                        panic!("Malformed argument binding given bind");
+                    match (names, values) {
+                        (BLispExpr::SExp(name, name_rest), BLispExpr::SExp(value, value_rest)) => {
+                            match (*name, *value) {
+                                (BLispExpr::Symbol(name), value) => {
+                                    args_list = *name_rest;
+                                    args = *value_rest;
+                                    new_env.insert(name, value)
+                                },
+                                (_, _) => panic!("Argument names must be of type Symbol"),
+                            }
+                        },
+                        (BLispExpr::Symbol(symbol_text), remaining) => {
+                            new_env.insert(symbol_text, remaining);
+                            break;
+                        },
+                        (_, _) => panic!("Malformed argument binding given to bind"),
                     }
                 }
             }
