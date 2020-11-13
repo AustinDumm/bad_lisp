@@ -868,6 +868,40 @@ fn exec(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
     BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed string given to exec. Found: {}", args), None))
 }
 
+fn apply(args: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
+    fn quote_each_elt(list: BLispExpr) -> BLispEvalResult {
+        if let BLispExpr::SExp(first, rest) = list {
+            match quote_each_elt(*rest) { 
+                BLispEvalResult::Result(rest) => 
+                    return BLispEvalResult::Result(BLispExpr::cons_sexp(BLispExpr::cons_sexp(BLispExpr::SpecialForm(quote), BLispExpr::cons_sexp(*first, BLispExpr::Nil)),
+                                                                        rest)),
+                BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
+                BLispEvalResult::TailCall(expr, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found while applying: {}", expr), None)),
+            }
+        } else if list == BLispExpr::Nil {
+            return BLispEvalResult::Result(BLispExpr::Nil);
+        } else {
+            return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected expr while applying list: {}", list), None));
+        }
+    }
+
+    if let BLispExpr::SExp(applicable, rest) = args.clone() {
+        if let BLispExpr::SExp(list, nil) = *rest {
+            if *nil != BLispExpr::Nil {
+                return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Too many arguments provided to apply: {}", *nil), None));
+            }
+
+            match quote_each_elt(*list) {
+                BLispEvalResult::Result(list) => return BLispEvalResult::TailCall(BLispExpr::cons_sexp(*applicable, list), env.clone()),
+                BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
+                BLispEvalResult::TailCall(expr, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found while applying: {}", expr), None)),
+            }
+        }
+    }
+
+    return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to apply: {}", args), None));
+}
+
 fn parse(args: BLispExpr, _env: Rc<BLispEnv>) -> BLispEvalResult {
     if let BLispExpr::SExp(first, rest) = args.clone() {
         match (*first, *rest) {
@@ -948,6 +982,7 @@ pub fn default_env() -> BLispEnv {
     env.insert("lambda".to_string(), BLispExpr::SpecialForm(lambda));
     env.insert("macro".to_string(), BLispExpr::SpecialForm(def_macro));
     env.insert("eval".to_string(), BLispExpr::Function(eval));
+    env.insert("apply".to_string(), BLispExpr::Function(apply));
     env.insert("quote".to_string(), BLispExpr::SpecialForm(quote));
     env.insert("quasiquote".to_string(), BLispExpr::SpecialForm(quasiquote));
     env.insert("unquote".to_string(), BLispExpr::Function(eval));
