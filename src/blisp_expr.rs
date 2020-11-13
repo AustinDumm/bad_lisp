@@ -37,14 +37,14 @@ impl BLispEnv {
         }
     }
 
-    pub fn bind(parent: Rc<Self>, mut args_list: BLispExpr, mut args: BLispExpr) -> BLispEnv {
+    pub fn bind(parent: Rc<Self>, mut args_list: BLispExpr, mut args: BLispExpr) -> Result<BLispEnv, String> {
         let mut new_env = BLispEnv::extend(parent);
 
         loop {
             match (args_list, args) {
                 (BLispExpr::Nil, BLispExpr::Nil) => break,
-                (BLispExpr::Nil, _) => panic!("Too many arguments to bind"),
-                (_, BLispExpr::Nil) => panic!("Too few arguments to bind"),
+                (BLispExpr::Nil, bind) => return Err(format!("Too many arguments to bind: {}", bind)),
+                (bind, BLispExpr::Nil) => return Err(format!("Too few arguments to bind: {}", bind)),
                 (names, values) => {
                     if let (BLispExpr::SExp(name, name_rest), BLispExpr::SExp(value, value_rest)) = (names, values) {
                         match (*name, *value) {
@@ -62,7 +62,7 @@ impl BLispEnv {
             }
         }
 
-        new_env
+        Ok(new_env)
     }
 }
 
@@ -71,6 +71,16 @@ pub enum BLispEvalResult {
     Result(BLispExpr),
     TailCall(BLispExpr, Rc<BLispEnv>),
     Error(BLispError),
+}
+
+impl std::fmt::Display for BLispEvalResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            BLispEvalResult::Result(expr) => write!(f, "Result({})", expr),
+            BLispEvalResult::Error(error) => write!(f, "{}", error),
+            BLispEvalResult::TailCall(expr, _) => write!(f, "TailCall({}", expr),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

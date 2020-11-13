@@ -72,8 +72,8 @@ impl BLispError {
 impl std::fmt::Display for BLispError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.position {
-            Some(position) => write!(f, "{}: {:<70} | {}:{}", self.error_type, self.message, position.0, position.1),
-            None => write!(f, "{}: {:<70}", self.error_type, self.message),
+            Some(position) => write!(f, "{} | {:<70} | {}:{}", self.error_type, self.message, position.0, position.1),
+            None => write!(f, "{} | {:<70}", self.error_type, self.message),
         }
     }
 }
