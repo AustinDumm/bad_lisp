@@ -316,7 +316,15 @@ where I: Iterator<Item = char> {
         Some(character) if character.is_digit(10) || *character == '.' => lex_digit(true, iterator, position),
         None => Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol('-'.to_string())), position)),
         Some(character) if BLispTokenType::is_token_interruptor(character) => Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol('-'.to_string())), position)),
-        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character after \'-\': {}", character), Some(position))),
+        Some(_) => 
+            match lex_symbol(iterator) {
+                Ok(token) =>
+                    match token.clone().token_type {
+                        BLispTokenType::Expr(BLispExpr::Symbol(sym)) => Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol(format!("-{}", sym))), token.position())),
+                        expr => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected expression found following character '-': {}", expr), Some(token.position()))),
+                    }
+                Err(error) => Err(error),
+            }
     }
 }
 
