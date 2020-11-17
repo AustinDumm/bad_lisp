@@ -5,6 +5,7 @@
            (+c (lambda (a b k) (k (+ a b))))
            (-c (lambda (a b k) (k (- a b))))
            (=c (lambda (a b k) (k (= a b))))
+           (*c (lambda (a b k) (k (* a b))))
            (id (lambda (v) v))
            (fib (Yk (lambda (fib)
                     (lambda (n k)
@@ -25,4 +26,4 @@
                                                                         (fib n2
                                                                             (lambda (f2)
                                                                                 (+c f1 f2 k))))))))))))))))) id)))
-        (fib 10 (lambda (r) (* r r)))))
+        (fib 12 (lambda (r) (*c r r id)))))
