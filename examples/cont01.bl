@@ -1,0 +1,28 @@
+(dyn-let (load "./library/lib.bl")
+    (let* ((Yk (lambda (f k) 
+            (k ((lambda (x) (x x))
+                (lambda (x) (f (lambda n (apply (x x) n))))))))
+           (+c (lambda (a b k) (k (+ a b))))
+           (-c (lambda (a b k) (k (- a b))))
+           (=c (lambda (a b k) (k (= a b))))
+           (id (lambda (v) v))
+           (fib (Yk (lambda (fib)
+                    (lambda (n k)
+                        (=c 0 n
+                            (lambda (r)
+                                (if r
+                                    (k 0)
+                                    (=c 1 n
+                                        (lambda (r)
+                                            (if r
+                                                (k 1)
+                                                (-c n 1
+                                                    (lambda (n1)
+                                                        (-c n 2
+                                                            (lambda (n2)
+                                                                (fib n1
+                                                                    (lambda (f1)
+                                                                        (fib n2
+                                                                            (lambda (f2)
+                                                                                (+c f1 f2 k))))))))))))))))) id)))
+        (fib 10 (lambda (r) (* r r)))))
