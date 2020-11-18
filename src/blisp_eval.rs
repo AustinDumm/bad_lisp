@@ -1,13 +1,10 @@
 
 use std::rc::Rc;
 
-use crate::blisp_expr::{
+use crate::types::{
     BLispExpr,
-    BLispEnv,
     BLispEvalResult,
-};
-
-use crate::blisp_lexer::{
+    BLispEnv,
     BLispError,
     BLispErrorType,
 };

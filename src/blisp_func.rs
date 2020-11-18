@@ -5,18 +5,15 @@ use std::fs;
 use std::rc::Rc;
 use std::convert::TryInto;
 
-use crate::blisp_expr::{
+use crate::types::{
     BLispExpr,
-    BLispEnv,
     BLispEvalResult,
-};
-
-use crate::blisp_lexer::{
-    self,
+    BLispEnv,
     BLispError,
     BLispErrorType,
 };
 
+use crate::blisp_lexer;
 use crate::blisp_eval::evaluate;
 use crate::blisp_parser::{
     self,

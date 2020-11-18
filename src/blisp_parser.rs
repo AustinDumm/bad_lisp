@@ -1,20 +1,16 @@
 
 use std::collections::VecDeque;
 
-use crate::blisp_expr::{
+use crate::types::{
     BLispExpr,
-};
-
-use crate::blisp_lexer::{
-    BLispToken,
-    BLispTokenType,
+    BLispExprResult,
     BLispError,
     BLispErrorType,
+    BLispToken,
+    BLispTokenType,
 };
 
 use crate::blisp_func;
-
-type BLispExprResult = Result<BLispExpr, BLispError>;
 
 pub fn parse(token_queue: &mut VecDeque<BLispToken>) -> BLispExprResult {
     match token_queue.front() {

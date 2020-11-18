@@ -9,12 +9,12 @@ use std::fs;
 use clap::{App, Arg, ArgGroup, ArgMatches};
 
 mod blisp_lexer;
-mod blisp_expr;
 mod blisp_parser;
 mod blisp_eval;
 mod blisp_func;
+mod types;
 
-use blisp_expr::BLispEvalResult;
+use types::BLispEvalResult;
 
 fn clap_args() -> ArgMatches {
     App::new("bad_lisp")
