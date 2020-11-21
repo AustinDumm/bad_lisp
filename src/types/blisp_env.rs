@@ -46,9 +46,9 @@ impl BLispEnv {
             match (args_list, args) {
                 (BLispExpr::Nil, BLispExpr::Nil) => break,
                 (BLispExpr::Nil, bind) => return Err(format!("Too many arguments to bind: {}", bind)),
-                (bind, BLispExpr::Nil) => return Err(format!("Too few arguments to bind: {}", bind)),
                 (names, values) => {
                     match (names, values) {
+                        (BLispExpr::SExp(name, _), BLispExpr::Nil) => return Err(format!("Too few arguments to bind: {}", name)),
                         (BLispExpr::SExp(name, name_rest), BLispExpr::SExp(value, value_rest)) => {
                             match (*name, *value) {
                                 (BLispExpr::Symbol(name), value) => {
