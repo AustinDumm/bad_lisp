@@ -124,7 +124,7 @@ fn stack_eval_list(stack: BLispCallStack, operation_args: (BLispExpr, BLispExpr)
         match operation_args {
             (BLispExpr::Function(func), args) |
             (BLispExpr::SpecialForm(func), args) => {
-                match func(args, frame.env.clone()) {
+                match func(args, frame.env.clone(), stack.clone()) {
                     BLispEvalResult::Result(result) => stack_return(stack, result),
                     BLispEvalResult::TailCall(result, env) => stack_tail_sub(stack, result, env),
                     BLispEvalResult::Error(error) => EvalFrameResult::EvalResult(BLispEvalResult::Error(error)),
@@ -142,7 +142,17 @@ fn stack_eval_list(stack: BLispCallStack, operation_args: (BLispExpr, BLispExpr)
                     Err(error) => EvalFrameResult::EvalResult(BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, error, None))),
                 }
             },
-            _ => panic!("No no no no noooo"),
+            (BLispExpr::Continuation(stack), args) => {
+                if let BLispExpr::SExp(first, nil) = args {
+                    match (*first, *nil) {
+                        (arg, BLispExpr::Nil) => stack_return(stack, arg),
+                        (_, unexpected) => panic!("Too many arguments provided to continuation: {}", unexpected),
+                    }
+                } else {
+                    panic!("Malformed arguments given to continuation")
+                }
+            }
+            _ => panic!("Unapplicable element used as operation"),
         }
     } else {
         panic!("Empty node given to stack_eval_list")

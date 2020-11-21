@@ -9,7 +9,7 @@ use crate::types::{
 
 pub type BLispCallStack = Cactus<BLispFrame>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BLispFrame {
     pub expr: BLispExpr,
     pub eval_buffer: Vec<BLispExpr>,

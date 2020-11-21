@@ -4,6 +4,7 @@ use crate::types::{
     BLispEnv,
     BLispEvalResult,
     BLispError,
+    BLispCallStack,
 };
 
 pub type BLispExprResult = Result<BLispExpr, BLispError>;
@@ -16,11 +17,12 @@ pub enum BLispExpr {
     Float(f64),
     Char(char),
     Symbol(String),
-    SpecialForm(fn(BLispExpr, Rc<BLispEnv>) -> BLispEvalResult),
-    Function(fn(BLispExpr, Rc<BLispEnv>) -> BLispEvalResult),
+    SpecialForm(fn(BLispExpr, Rc<BLispEnv>, BLispCallStack) -> BLispEvalResult),
+    Function(fn(BLispExpr, Rc<BLispEnv>, BLispCallStack) -> BLispEvalResult),
     Lambda(Box<BLispExpr>, Box<BLispExpr>, Rc<BLispEnv>),
     Macro(Box<BLispExpr>, Box<BLispExpr>),
     SExp(Box<BLispExpr>, Box<BLispExpr>),
+    Continuation(BLispCallStack),
 }
 
 impl std::fmt::Display for BLispExpr {
@@ -37,6 +39,7 @@ impl std::fmt::Display for BLispExpr {
             BLispExpr::Function(_) => write!(f, "Function"),
             BLispExpr::Macro(args, body) => write!(f, "Macro({} -> \n\t{})", args, body),
             BLispExpr::Lambda(args, body, _) => write!(f, "Lambda({} -> \n\t{})", args, body),
+            BLispExpr::Continuation(stack) => write!(f, "Continuation({:?})", stack),
         }
     }
 }
@@ -66,7 +69,8 @@ impl BLispExpr {
     pub fn is_eval_applicable(&self) -> bool {
         match self {
             BLispExpr::Function(_)
-                | BLispExpr::Lambda(_, _, _) => true,
+                | BLispExpr::Lambda(_, _, _)
+                | BLispExpr::Continuation(_) => true,
             _ => false,
         }
     }
