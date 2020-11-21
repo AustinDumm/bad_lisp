@@ -62,4 +62,20 @@ impl BLispExpr {
             panic!("BLispExpr expected to be list")
         }
     }
+
+    pub fn is_eval_applicable(&self) -> bool {
+        match self {
+            BLispExpr::Function(_)
+                | BLispExpr::Lambda(_, _, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_noeval_applicable(&self) -> bool {
+        match self {
+            BLispExpr::SpecialForm(_)
+                | BLispExpr::Macro(_, _) => true,
+            _ => false
+        }
+    }
 }

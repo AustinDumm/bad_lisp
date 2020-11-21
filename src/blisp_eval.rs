@@ -7,92 +7,146 @@ use crate::types::{
     BLispEnv,
     BLispError,
     BLispErrorType,
+    BLispFrame,
+    BLispCallStack,
 };
 
-pub fn evaluate(mut expr: BLispExpr, mut env: Rc<BLispEnv>) -> BLispEvalResult {
+enum EvalFrameResult {
+    Stack(BLispCallStack),
+    EvalResult(BLispEvalResult),
+}
+
+pub fn evaluate(expr: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
+    let root = BLispCallStack::new();
+    let mut stack = root.child(BLispFrame::new(expr, vec![], env.clone()));
+    
     loop {
-        match expr {
-            BLispExpr::SExp(first, rest) => {
-                let first = evaluate(*first, env.clone());
-                let rest = *rest;
-                match (first, rest) {
-                    (BLispEvalResult::Result(BLispExpr::Function(fn_ptr)), rest) => {
-                        match evaluate_list_items(rest, env.clone()) {
-                            BLispEvalResult::Result(rest) => 
-                                match fn_ptr(rest, env) {
-                                    BLispEvalResult::Result(expr) => return BLispEvalResult::Result(expr),
-                                    BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
-                                    BLispEvalResult::TailCall(next_expr, next_env) => { expr = next_expr; env = next_env; continue; }
-                                },
-                            BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
-                            BLispEvalResult::TailCall(expr, _) =>
-                                return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found as evaluation of function arguments: {}", expr), None)),
-                        }
-                    },
-                    (BLispEvalResult::Result(BLispExpr::SpecialForm(fn_ptr)), rest) => {
-                        match fn_ptr(rest, env) {
-                            BLispEvalResult::Result(expr) => return BLispEvalResult::Result(expr),
-                            BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
-                            BLispEvalResult::TailCall(next_expr, next_env) => { expr = next_expr; env = next_env; continue; }
-                        }
-                    },
-                    (BLispEvalResult::Result(BLispExpr::Lambda(arg_list, next_expr, local_env)), rest) => {
-                        match evaluate_list_items(rest, env.clone()) {
-                            BLispEvalResult::Result(rest) => {
-                                expr = *next_expr;
-                                env = match BLispEnv::bind(local_env.clone(), *arg_list.clone(), rest) {
-                                    Ok(result) => Rc::new(result),
-                                    Err(message) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("{} While binding lambda to: {}", message, arg_list), None)),
-                                };
-                                continue;
-                            },
-                            BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
-                            BLispEvalResult::TailCall(expr, _) =>
-                                return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found as evaluation of lambda arguments: {}", expr), None)),
-                        }
-                    },
-                    (BLispEvalResult::Result(BLispExpr::Macro(arg_list, next_expr)), rest) => {
-                        expr = *next_expr;
-                        env = match BLispEnv::bind(env.clone(), *arg_list.clone(), rest) {
-                            Ok(result) => Rc::new(result),
-                            Err(message) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("{} While binding macro to: {}", message, arg_list), None)),
-                        };
-                        continue
-                    },
-                    (BLispEvalResult::Result(item), _) => {
-                        return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unapplicable first element in list: {}", item), None))
-                    },
-                    (BLispEvalResult::Error(error), _) => return BLispEvalResult::Error(error),
-                    (result, _) => {
-                        return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unknown result in list: {}", result), None))
-                    }
-                }
-            },
-            BLispExpr::Symbol(string) =>
-                match env.get(&string) {
-                    Some(result) => return BLispEvalResult::Result(result.clone()),
-                    None => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unbound symbol evaluated: {}", string), None)),
-                },
-            expr => return BLispEvalResult::Result(expr)
+        match stack_eval_step(stack) {
+            EvalFrameResult::Stack(new_stack) => stack = new_stack,
+            EvalFrameResult::EvalResult(result) => return result,
         }
     }
 }
 
-fn evaluate_list_items(expr: BLispExpr, env: Rc<BLispEnv>) -> BLispEvalResult {
-    if let BLispExpr::SExp(first, rest) = expr {
-        match (evaluate(*first, env.clone()), evaluate_list_items(*rest, env.clone())) {
-            (BLispEvalResult::Result(eval_first), BLispEvalResult::Result(eval_rest)) =>
-                return BLispEvalResult::Result(BLispExpr::cons_sexp(eval_first, eval_rest)),
-            (BLispEvalResult::Error(err), _)
-                | (_, BLispEvalResult::Error(err)) => return BLispEvalResult::Error(err),
-            (BLispEvalResult::Result(_), result)
-                | (result, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected result found as evaluation of list elements: {}", result), None)),
+fn stack_eval_step(stack: BLispCallStack) -> EvalFrameResult {
+    if let Some(frame) = stack.val() {
+        match frame.expr.clone() {
+            BLispExpr::SExp(_, _) =>
+                stack_eval_list_elts_step(stack),
+            BLispExpr::Nil if frame.eval_buffer.len() > 0 => {
+                let args = collect_eval_buffer(&frame.eval_buffer);
+                stack_eval_list(stack, args)
+            }
+            BLispExpr::Symbol(sym_text) =>
+                match frame.env.clone().get(&sym_text) {
+                    None => EvalFrameResult::EvalResult(BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Failed symbol lookup: {}", sym_text), None))),
+                    Some(expr) => stack_return(stack, expr.clone()),
+                }
+            expr =>
+                stack_return(stack, expr),
         }
-    } else if expr == BLispExpr::Nil {
-        return BLispEvalResult::Result(BLispExpr::Nil)
+    } else {
+        panic!("Empty frame found. Aborting evaluation")
+    }
+}
+
+fn stack_return(stack: BLispCallStack, expr: BLispExpr) -> EvalFrameResult {
+    if let Some(parent_node) = stack.parent() {
+        if let Some(parent_frame) = parent_node.val() {
+            if let Some(grandparent_node) = parent_node.parent() {
+                let new_parent_frame = parent_frame.list_step(expr);
+                EvalFrameResult::Stack(grandparent_node.child(new_parent_frame))
+            } else {
+                panic!("No grandparent node found on frame return")
+            }
+        } else {
+            EvalFrameResult::EvalResult(BLispEvalResult::Result(expr))
+        }
+    } else {
+        panic!("No parent node found on frame return")
+    }
+}
+
+fn stack_tail_sub(stack: BLispCallStack, expr: BLispExpr, env: Rc<BLispEnv>) -> EvalFrameResult {
+    if let Some(parent_node) = stack.parent() {
+        let new_frame = BLispFrame::new(expr, vec![], env);
+        EvalFrameResult::Stack(parent_node.child(new_frame))
+    } else {
+        panic!("No parent on which to substitute current node")
+    }
+}
+
+fn stack_eval_next_elt(stack: BLispCallStack) -> EvalFrameResult {
+    if let Some(frame) = stack.val() {
+        match frame.expr.clone() {
+            BLispExpr::SExp(first, _) => EvalFrameResult::Stack(stack.child(BLispFrame::new(*first.clone(), vec![], frame.env.clone()))),
+            unexpected => panic!("Non-list passed to stack_eval_list_elts_step: {}", unexpected),
+        }
+    } else {
+        panic!("Empty frame given to stack_eval_next_elt")
+    }
+}
+
+fn stack_eval_list_elts_step(stack: BLispCallStack) -> EvalFrameResult {
+    if let Some(frame) = stack.val() {
+        match frame.eval_buffer.len() {
+            0 => stack_eval_next_elt(stack),
+            _ => {
+                match frame.eval_buffer.first().expect("No front found on evaluation list") {
+                    first if first.is_eval_applicable() => stack_eval_next_elt(stack),
+                    first if first.is_noeval_applicable() => {
+                        let pair = (first.clone(), frame.expr.clone());
+                        stack_eval_list(stack, pair)
+                    }
+                    unexpected => panic!("Unapplicable element as beginning of list: {}", unexpected),
+                }
+            },
+        }
+    } else {
+        panic!("Empty stack node given to elts eval")
+    }
+}
+
+fn collect_eval_buffer(buffer: &Vec<BLispExpr>) -> (BLispExpr, BLispExpr) {
+    let mut expr = BLispExpr::Nil;
+    for next_expr in buffer.iter().rev() {
+        expr = BLispExpr::cons_sexp(next_expr.clone(), expr);
     }
 
-    return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Misformed list found"), None))
+    match expr {
+        BLispExpr::SExp(operation, args) => (*operation, *args),
+        _ => unreachable!(),
+    }
+}
+
+fn stack_eval_list(stack: BLispCallStack, operation_args: (BLispExpr, BLispExpr)) -> EvalFrameResult {
+    if let Some(frame) = stack.val() {
+        match operation_args {
+            (BLispExpr::Function(func), args) |
+            (BLispExpr::SpecialForm(func), args) => {
+                match func(args, frame.env.clone()) {
+                    BLispEvalResult::Result(result) => stack_return(stack, result),
+                    BLispEvalResult::TailCall(result, env) => stack_tail_sub(stack, result, env),
+                    BLispEvalResult::Error(error) => EvalFrameResult::EvalResult(BLispEvalResult::Error(error)),
+                }
+            },
+            (BLispExpr::Lambda(args_names, body, env), args) => {
+                match BLispEnv::bind(env, *args_names, args) {
+                    Ok(env) => stack_tail_sub(stack, *body, Rc::new(env)),
+                    Err(error) => EvalFrameResult::EvalResult(BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, error, None))),
+                }
+            },
+            (BLispExpr::Macro(args_names, body), args) => {
+                match BLispEnv::bind(frame.env.clone(), *args_names, args) {
+                    Ok(env) => stack_tail_sub(stack, *body, Rc::new(env)),
+                    Err(error) => EvalFrameResult::EvalResult(BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, error, None))),
+                }
+            },
+            _ => panic!("No no no no noooo"),
+        }
+    } else {
+        panic!("Empty node given to stack_eval_list")
+    }
 }
 
 #[cfg(test)]
