@@ -11,6 +11,7 @@ use crate::types::{
     BLispCallStack,
 };
 
+#[derive(Clone)]
 enum EvalFrameResult {
     Stack(BLispCallStack),
     EvalResult(BLispEvalResult),
@@ -119,6 +120,14 @@ fn collect_eval_buffer(buffer: &Vec<BLispExpr>) -> (BLispExpr, BLispExpr) {
     }
 }
 
+fn apply_frames_to_stack(mut stack: BLispCallStack, frame_list: Vec<BLispFrame>) -> BLispCallStack {
+    for frame in frame_list.iter().rev() {
+        stack = stack.child(frame.clone());
+    }
+
+    stack
+}
+
 fn stack_eval_list(stack: BLispCallStack, operation_args: (BLispExpr, BLispExpr)) -> EvalFrameResult {
     if let Some(frame) = stack.val() {
         match operation_args {
@@ -146,10 +155,21 @@ fn stack_eval_list(stack: BLispCallStack, operation_args: (BLispExpr, BLispExpr)
                 if let BLispExpr::SExp(first, nil) = args {
                     match (*first, *nil) {
                         (arg, BLispExpr::Nil) => stack_return(stack, arg),
-                        (_, unexpected) => panic!("Too many arguments provided to continuation: {}", unexpected),
+                        (arg, unexpected) => panic!("Too many arguments provided to continuation: ({}, {})", arg, unexpected),
                     }
                 } else {
                     panic!("Malformed arguments given to continuation")
+                }
+            },
+            (BLispExpr::DelimitedContinuation(frame_list), args) => {
+                if let BLispExpr::SExp(first, nil) = args {
+                    match (*first, *nil, stack.parent()) {
+                        (arg, BLispExpr::Nil, Some(stack)) => stack_return(apply_frames_to_stack(stack, frame_list).child(BLispFrame::new(BLispExpr::Nil, vec![], std::rc::Rc::new(BLispEnv::new()))), arg),
+                        (_, _, None) => panic!("No parent node found on delimited continuation application"),
+                        (_, unexpected, _) => panic!("Too many arguments provided to delimited continuation: {}", unexpected),
+                    }
+                } else {
+                    panic!("Malformed arguments given to delimited continuation")
                 }
             }
             _ => panic!("Unapplicable element used as operation"),

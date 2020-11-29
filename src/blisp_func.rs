@@ -12,6 +12,7 @@ use crate::types::{
     BLispError,
     BLispErrorType,
     BLispCallStack,
+    BLispFrame,
 };
 
 use crate::blisp_lexer;
@@ -935,6 +936,60 @@ pub fn call_with_current_continuation(args: BLispExpr, env: Rc<BLispEnv>, cc: BL
     }
 }
 
+pub fn reset(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
+    if let BLispExpr::SExp(arg, nil) = args {
+        if *nil == BLispExpr::Nil {
+            BLispEvalResult::Result(*arg)
+        } else {
+            panic!("Too many arguments provided to reset: {}", *nil)
+        }
+    } else {
+        panic!("Malformed argument list provided to reset: {}", args)
+    }
+}
+
+pub fn shift(args: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack) -> BLispEvalResult {
+    fn is_frame_reset(frame: &BLispFrame) -> bool {
+        if let Some(first) = frame.eval_buffer.first() {
+            *first == BLispExpr::Function(reset)
+        } else {
+            false
+        }
+    }
+
+    if let BLispExpr::SExp(arg, nil) = args {
+        if *nil == BLispExpr::Nil {
+            let mut frame_list: Vec<BLispFrame> = vec![];
+            if let Some(mut cur_node) = cc.parent() {
+                while let Some(cur_frame) = cur_node.val() {
+                    if is_frame_reset(cur_frame) {
+                        break;
+                    } else {
+                        frame_list.push(cur_frame.clone());
+                    }
+
+                    if let Some(parent_node) = cur_node.parent() {
+                        cur_node = parent_node;
+                    } else {
+                        break;
+                    }
+                }
+                let delimited_continuation = BLispExpr::DelimitedContinuation(frame_list);
+                let delimited_application = BLispExpr::cons_sexp(*arg, BLispExpr::cons_sexp(delimited_continuation, BLispExpr::Nil));
+                let reset_continuation = BLispExpr::Continuation(cur_node.clone());
+                let reset_call = BLispExpr::cons_sexp(reset_continuation, BLispExpr::cons_sexp(delimited_application, BLispExpr::Nil));
+                BLispEvalResult::TailCall(reset_call, env)
+            } else {
+                panic!("Shift has no parent call stack frame")
+            }
+        } else {
+            panic!("Too many arguments provided to shift: {}", *nil)
+        }
+    } else {
+        panic!("Malformed argument list provided to shift: {}", args)
+    }
+}
+
 //=============== Default Environment ===============
 pub fn default_env() -> BLispEnv {
     let mut env = BLispEnv::new();
@@ -1009,6 +1064,8 @@ pub fn default_env() -> BLispEnv {
 
     env.insert("call-with-current-continuation".to_string(), BLispExpr::Function(call_with_current_continuation));
     env.insert("call/cc".to_string(), BLispExpr::Function(call_with_current_continuation));
+    env.insert("reset".to_string(), BLispExpr::Function(reset));
+    env.insert("shift".to_string(), BLispExpr::SpecialForm(shift));
 
     env
 }

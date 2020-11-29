@@ -27,12 +27,23 @@ impl BLispFrame {
             BLispExpr::SExp(_, rest) => {
                 new_frame.expr = *rest;
             },
-            unexpected => panic!("Given non-list expr frame to step on: {}", unexpected),
+            unexpected => panic!("Given non-list expr frame to step on: {} for {}", unexpected, self.expr),
         }
 
         new_frame.eval_buffer.push(nexpr);
 
         new_frame
+    }
+}
+
+impl std::fmt::Display for BLispFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let temp_expr = self.expr.clone();
+        let mut buffer_expr = BLispExpr::Nil;
+        for expr in self.eval_buffer.iter().rev() {
+            buffer_expr = BLispExpr::cons_sexp(expr.clone(), buffer_expr);
+        }
+        write!(f, "{}...\n\t -> {}", buffer_expr, temp_expr)
     }
 }
 
