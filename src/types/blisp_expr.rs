@@ -23,29 +23,10 @@ pub enum BLispExpr {
     Lambda(Box<BLispExpr>, Box<BLispExpr>, Rc<BLispEnv>),
     Macro(Box<BLispExpr>, Box<BLispExpr>),
     SExp(Box<BLispExpr>, Box<BLispExpr>),
-    Continuation(BLispCallStack),
-    DelimitedContinuation(Vec<BLispFrame>),
+    Continuation(Vec<BLispFrame>),
 }
 
-fn format_call_stack(mut stack: BLispCallStack) ->  String {
-    let mut formatted_stack: Vec<String> = vec![];
-    while let Some(frame) = stack.val() {
-        formatted_stack.push(format!("{}", frame));
-        if let Some(parent) = stack.parent() {
-            stack = parent;
-        } else {
-            break;
-        }
-    }
-
-    let mut formatted_string = format!("Continuation:\n");
-    for string in formatted_stack.iter().rev() {
-        formatted_string = format!("{}Frame:\n\t{}\n", formatted_string, string);
-    }
-    formatted_string
-}
-
-fn format_delimited_continuation(frame_list: &Vec<BLispFrame>) -> String {
+fn format_continuation(frame_list: &Vec<BLispFrame>) -> String {
     let mut formatted_string = format!("Delimited Continuation:\n");
     for frame in frame_list.iter().rev() {
         formatted_string = format!("{}\t{}\n", formatted_string, frame);
@@ -68,8 +49,7 @@ impl std::fmt::Display for BLispExpr {
             BLispExpr::Function(_) => write!(f, "Function"),
             BLispExpr::Macro(args, body) => write!(f, "Macro({} -> \n\t{})", args, body),
             BLispExpr::Lambda(args, body, _) => write!(f, "Lambda({} -> \n\t{})", args, body),
-            BLispExpr::Continuation(stack) => write!(f, "{}", format_call_stack(stack.clone())),
-            BLispExpr::DelimitedContinuation(frame_list) => write!(f, "{}", format_delimited_continuation(frame_list)),
+            BLispExpr::Continuation(frame_list) => write!(f, "{}", format_continuation(frame_list)),
         }
     }
 }
@@ -100,8 +80,7 @@ impl BLispExpr {
         match self {
             BLispExpr::Function(_)
                 | BLispExpr::Lambda(_, _, _)
-                | BLispExpr::Continuation(_)
-                | BLispExpr::DelimitedContinuation(_) => true,
+                | BLispExpr::Continuation(_) => true,
             _ => false,
         }
     }

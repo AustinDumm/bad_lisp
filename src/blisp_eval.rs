@@ -136,6 +136,7 @@ fn stack_eval_list(stack: BLispCallStack, operation_args: (BLispExpr, BLispExpr)
                 match func(args, frame.env.clone(), stack.clone()) {
                     BLispEvalResult::Result(result) => stack_return(stack, result),
                     BLispEvalResult::TailCall(result, env) => stack_tail_sub(stack, result, env),
+                    BLispEvalResult::Stack(stack) => EvalFrameResult::Stack(stack),
                     BLispEvalResult::Error(error) => EvalFrameResult::EvalResult(BLispEvalResult::Error(error)),
                 }
             },
@@ -151,17 +152,7 @@ fn stack_eval_list(stack: BLispCallStack, operation_args: (BLispExpr, BLispExpr)
                     Err(error) => EvalFrameResult::EvalResult(BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, error, None))),
                 }
             },
-            (BLispExpr::Continuation(stack), args) => {
-                if let BLispExpr::SExp(first, nil) = args {
-                    match (*first, *nil) {
-                        (arg, BLispExpr::Nil) => stack_return(stack, arg),
-                        (arg, unexpected) => panic!("Too many arguments provided to continuation: ({}, {})", arg, unexpected),
-                    }
-                } else {
-                    panic!("Malformed arguments given to continuation")
-                }
-            },
-            (BLispExpr::DelimitedContinuation(frame_list), args) => {
+            (BLispExpr::Continuation(frame_list), args) => {
                 if let BLispExpr::SExp(first, nil) = args {
                     match (*first, *nil, stack.parent()) {
                         (arg, BLispExpr::Nil, Some(stack)) => stack_return(apply_frames_to_stack(stack, frame_list).child(BLispFrame::new(BLispExpr::Nil, vec![], std::rc::Rc::new(BLispEnv::new()))), arg),

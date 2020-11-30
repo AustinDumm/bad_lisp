@@ -298,6 +298,7 @@ fn and(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResu
                         BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Second argument to \"and\" not boolean. Found: {}", second), None)),
                     BLispEvalResult::Error(error) => BLispEvalResult::Error(error),
                     BLispEvalResult::TailCall(_, _) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found as second argument of and"), None)),
+                    BLispEvalResult::Stack(_) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Stack returned from evaluation of second argument of and"), None)),
                 }
             },
             BLispEvalResult::Result(BLispExpr::Bool(false)) => return BLispEvalResult::Result(BLispExpr::Bool(false)),
@@ -305,6 +306,7 @@ fn and(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResu
                 BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("First argument to \"and\" not boolean. Found: {}", first), None)),
             BLispEvalResult::Error(error) => BLispEvalResult::Error(error),
             BLispEvalResult::TailCall(_, _) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found as first argument of and"), None)),
+            BLispEvalResult::Stack(_) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Stack returned from evaluation of first argument of and"), None)),
         }
     })
 }
@@ -319,6 +321,7 @@ fn or(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResul
                         BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Second argument to \"or\" not boolean. Found: {}", result), None)),
                     BLispEvalResult::Error(error) => BLispEvalResult::Error(error),
                     BLispEvalResult::TailCall(_, _) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TaillCall found as second argument of or"), None)),
+                    BLispEvalResult::Stack(_) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Stack returned from evaluation of second argument of or"), None)),
                 }
             },
             BLispEvalResult::Result(BLispExpr::Bool(true)) => return BLispEvalResult::Result(BLispExpr::Bool(true)),
@@ -326,6 +329,7 @@ fn or(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResul
                 BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("First argument to \"or\" not boolean. Found: {}", result), None)),
             BLispEvalResult::Error(error) => BLispEvalResult::Error(error),
             BLispEvalResult::TailCall(_, _) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found as first argument of or"), None)),
+            BLispEvalResult::Stack(_) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Stack returned from evaluation of first argument of or"), None)),
         }
     })
 }
@@ -590,6 +594,9 @@ fn if_impl(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEval
                         BLispEvalResult::TailCall(_, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation,
                                                                                                          format!("TallCall found as result to if predicate"),
                                                                                                          None)),
+                        BLispEvalResult::Stack(_) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation,
+                                                                                                   format!("Stack found as result to if predicate"),
+                                                                                                   None)),
                     }
                 }
             }
@@ -608,6 +615,7 @@ fn bind_single_binding(binding: BLispExpr, eval_env: Rc<BLispEnv>, env: &mut BLi
                         BLispEvalResult::Result(value) => env.insert(name, value),
                         BLispEvalResult::Error(error) => panic!("{}", error),
                         BLispEvalResult::TailCall(_, _) => panic!("TailCall found as result to binding list expr"),
+                        BLispEvalResult::Stack(_) => panic!("Stack found as result to binding list expr"),
                     }
                 }
                 (_, _, _) => panic!("Binding must be two element list with first element being a symbol"),
@@ -677,7 +685,9 @@ fn dyn_let(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEval
                     },
                     BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
                     BLispEvalResult::TailCall(_, _) =>
-                        return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found as result of dyn-let binding"), None))
+                        return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found as result of dyn-let binding"), None)),
+                    BLispEvalResult::Stack(_) =>
+                        return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Stack found as result of dyn-let binding"), None)),
                 }
             }
         }
@@ -798,7 +808,10 @@ pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BL
                         (_, BLispEvalResult::Error(error)) => return BLispEvalResult::Error(error),
                     (BLispEvalResult::TailCall(_, _), _) |
                         (_, BLispEvalResult::TailCall(_, _)) =>
-                            return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall returned as result of quasiquoted list"), None))
+                            return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall returned as result of quasiquoted list"), None)),
+                    (BLispEvalResult::Stack(_), _) |
+                        (_, BLispEvalResult::Stack(_)) =>
+                            return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Stack returned as result of quasiquoted list"), None)),
                 }
             }
         } else {
@@ -813,7 +826,9 @@ pub fn quasiquote(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BL
                     BLispEvalResult::Result(item) => return BLispEvalResult::Result(item),
                     BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
                     BLispEvalResult::TailCall(_, _) =>
-                        return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall returned as a result of quasiquoted list"), None))
+                        return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall returned as a result of quasiquoted list"), None)),
+                    BLispEvalResult::Stack(_) =>
+                        return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Stack returned as a result of quasiquoted list"), None)),
                 }
             },
             (first, rest) =>
@@ -876,6 +891,7 @@ fn apply(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalRe
                                                                         rest)),
                 BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
                 BLispEvalResult::TailCall(expr, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found while applying: {}", expr), None)),
+                BLispEvalResult::Stack(_) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Stack found while applying"), None)),
             }
         } else if list == BLispExpr::Nil {
             return BLispEvalResult::Result(BLispExpr::Nil);
@@ -894,6 +910,7 @@ fn apply(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalRe
                 BLispEvalResult::Result(list) => return BLispEvalResult::TailCall(BLispExpr::cons_sexp(*applicable, list), env.clone()),
                 BLispEvalResult::Error(error) => return BLispEvalResult::Error(error),
                 BLispEvalResult::TailCall(expr, _) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("TailCall found while applying: {}", expr), None)),
+                BLispEvalResult::Stack(_) => return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Stack found while applying"), None)),
             }
         }
     }
@@ -923,19 +940,6 @@ fn parse(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalR
 }
 
 //=============== Continuation Handling ===============
-pub fn call_with_current_continuation(args: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack) -> BLispEvalResult {
-    let continuation = BLispExpr::Continuation(cc.clone());
-    let cont_args = BLispExpr::cons_sexp(continuation, BLispExpr::Nil);
-    if let BLispExpr::SExp(applicable, rest) = args.clone() {
-        match (*applicable, *rest) {
-            (applicable, BLispExpr::Nil) => BLispEvalResult::TailCall(BLispExpr::cons_sexp(applicable, cont_args), env),
-            (_, unexpected) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Too many arguments given to call/cc: {}", unexpected), None)),
-        }
-    } else {
-        BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected argument format passed to call/cc: {}", args), None))
-    }
-}
-
 pub fn reset(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
     if let BLispExpr::SExp(arg, nil) = args {
         if *nil == BLispExpr::Nil {
@@ -974,11 +978,10 @@ pub fn shift(args: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack) -> BLispEva
                         break;
                     }
                 }
-                let delimited_continuation = BLispExpr::DelimitedContinuation(frame_list);
+                let delimited_continuation = BLispExpr::Continuation(frame_list);
                 let delimited_application = BLispExpr::cons_sexp(*arg, BLispExpr::cons_sexp(delimited_continuation, BLispExpr::Nil));
-                let reset_continuation = BLispExpr::Continuation(cur_node.clone());
-                let reset_call = BLispExpr::cons_sexp(reset_continuation, BLispExpr::cons_sexp(delimited_application, BLispExpr::Nil));
-                BLispEvalResult::TailCall(reset_call, env)
+                let shifted_frame = BLispFrame::new(delimited_application, vec![], env);
+                BLispEvalResult::Stack(cur_node.child(shifted_frame))
             } else {
                 panic!("Shift has no parent call stack frame")
             }
@@ -1062,8 +1065,6 @@ pub fn default_env() -> BLispEnv {
     env.insert("debug".to_string(), BLispExpr::Function(debug));
     env.insert("read".to_string(), BLispExpr::Function(read_std));
 
-    env.insert("call-with-current-continuation".to_string(), BLispExpr::Function(call_with_current_continuation));
-    env.insert("call/cc".to_string(), BLispExpr::Function(call_with_current_continuation));
     env.insert("reset".to_string(), BLispExpr::Function(reset));
     env.insert("shift".to_string(), BLispExpr::SpecialForm(shift));
 

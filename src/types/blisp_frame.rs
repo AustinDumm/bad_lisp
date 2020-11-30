@@ -9,6 +9,24 @@ use crate::types::{
 
 pub type BLispCallStack = Cactus<BLispFrame>;
 
+pub fn format_call_stack(mut stack: BLispCallStack) ->  String {
+    let mut formatted_stack: Vec<String> = vec![];
+    while let Some(frame) = stack.val() {
+        formatted_stack.push(format!("{}", frame));
+        if let Some(parent) = stack.parent() {
+            stack = parent;
+        } else {
+            break;
+        }
+    }
+
+    let mut formatted_string = format!("Continuation:\n");
+    for string in formatted_stack.iter().rev() {
+        formatted_string = format!("{}Frame:\n\t{}\n", formatted_string, string);
+    }
+    formatted_string
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct BLispFrame {
     pub expr: BLispExpr,

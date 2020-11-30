@@ -68,6 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
                                 BLispEvalResult::Result(result) => format!("{}", result),
                                 BLispEvalResult::Error(error) => format!("{}", error),
                                 BLispEvalResult::TailCall(_, _) => panic!("TailCall returned from evaluate"),
+                                BLispEvalResult::Stack(_) => panic!("Stack returned from top-level evaluate"),
                             }
                         Err(error) => format!("{}", error),
                     }
