@@ -940,7 +940,7 @@ fn parse(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalR
 }
 
 //=============== Continuation Handling ===============
-pub fn reset(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
+pub fn reset_impl(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
     if let BLispExpr::SExp(arg, nil) = args {
         if *nil == BLispExpr::Nil {
             BLispEvalResult::Result(*arg)
@@ -951,42 +951,77 @@ pub fn reset(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispE
         panic!("Malformed argument list provided to reset: {}", args)
     }
 }
-
-pub fn shift(args: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack) -> BLispEvalResult {
-    fn is_frame_reset(frame: &BLispFrame) -> bool {
-        if let Some(first) = frame.eval_buffer.first() {
-            *first == BLispExpr::Function(reset)
-        } else {
-            false
-        }
+pub fn reset(args: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack) -> BLispEvalResult {
+    if let Some(parent) = cc.parent() {
+        BLispEvalResult::Stack(parent.child(BLispFrame::new_cont(BLispExpr::cons_sexp(BLispExpr::Function(reset_impl), args), vec![], env, None)))
+    } else {
+        panic!("No parent for reset frame")
     }
+}
 
-    if let BLispExpr::SExp(arg, nil) = args {
-        if *nil == BLispExpr::Nil {
-            let mut frame_list: Vec<BLispFrame> = vec![];
-            if let Some(mut cur_node) = cc.parent() {
-                while let Some(cur_frame) = cur_node.val() {
-                    if is_frame_reset(cur_frame) {
-                        break;
-                    } else {
-                        frame_list.push(cur_frame.clone());
-                    }
-
-                    if let Some(parent_node) = cur_node.parent() {
-                        cur_node = parent_node;
-                    } else {
-                        break;
-                    }
-                }
-                let delimited_continuation = BLispExpr::Continuation(frame_list);
-                let delimited_application = BLispExpr::cons_sexp(*arg, BLispExpr::cons_sexp(delimited_continuation, BLispExpr::Nil));
-                let shifted_frame = BLispFrame::new(delimited_application, vec![], env);
-                BLispEvalResult::Stack(cur_node.child(shifted_frame))
+pub fn reset_as(args: BLispExpr, env:Rc<BLispEnv>, cc: BLispCallStack) -> BLispEvalResult {
+    if let BLispExpr::SExp(label, rest) = args {
+        if let BLispExpr::Symbol(label) = *label {
+            if let Some(parent) = cc.parent() {
+                BLispEvalResult::Stack(parent.child(BLispFrame::new_cont(BLispExpr::cons_sexp(BLispExpr::Function(reset_impl), *rest), vec![], env, Some(label))))
             } else {
-                panic!("Shift has no parent call stack frame")
+                panic!("No parent for reset-as frame")
             }
         } else {
+            panic!("No symbol provided to reset-as")
+        }
+    } else {
+        panic!("Malformed argument list provided to reset: {}", args)
+    }
+}
+                    
+pub fn shift_impl(body: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack, reset_label: Option<String>) -> BLispEvalResult {
+    let mut frame_list: Vec<BLispFrame> = vec![];
+    if let Some(mut cur_node) = cc.parent() {
+        while let Some(cur_frame) = cur_node.val() {
+            if cur_frame.matches_continuation(reset_label.clone()) {
+                break;
+            } else {
+                frame_list.push(cur_frame.clone());
+            }
+
+            if let Some(parent_node) = cur_node.parent() {
+                cur_node = parent_node;
+            } else {
+                break;
+            }
+        }
+        let delimited_continuation = BLispExpr::Continuation(frame_list);
+        let delimited_application = BLispExpr::cons_sexp(body, BLispExpr::cons_sexp(delimited_continuation, BLispExpr::Nil));
+        let shifted_frame = BLispFrame::new(delimited_application, vec![], env);
+        BLispEvalResult::Stack(cur_node.child(shifted_frame))
+    } else {
+        panic!("Shift has no parent call stack frame")
+    }
+}
+
+pub fn shift(args: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack) -> BLispEvalResult {
+    if let BLispExpr::SExp(arg, nil) = args {
+        if *nil == BLispExpr::Nil {
+            shift_impl(*arg, env, cc, None)
+        } else {
             panic!("Too many arguments provided to shift: {}", *nil)
+        }
+    } else {
+        panic!("Malformed argument list provided to shift: {}", args)
+    }
+}
+
+pub fn shift_to(args: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack) -> BLispEvalResult {
+    if let BLispExpr::SExp(label, rest) = args {
+        if let (BLispExpr::Symbol(label), BLispExpr::SExp(arg, nil)) = (*label, *rest) {
+            if *nil == BLispExpr::Nil {
+                shift_impl(*arg, env, cc, Some(label))
+            } else {
+                panic!("Too many arguments provided to shift: {}", *nil)
+            }
+        } else {
+            panic!("No label provided to shift-to")
         }
     } else {
         panic!("Malformed argument list provided to shift: {}", args)
@@ -1065,8 +1100,10 @@ pub fn default_env() -> BLispEnv {
     env.insert("debug".to_string(), BLispExpr::Function(debug));
     env.insert("read".to_string(), BLispExpr::Function(read_std));
 
-    env.insert("reset".to_string(), BLispExpr::Function(reset));
+    env.insert("reset".to_string(), BLispExpr::SpecialForm(reset));
+    env.insert("reset-as".to_string(), BLispExpr::SpecialForm(reset_as));
     env.insert("shift".to_string(), BLispExpr::SpecialForm(shift));
+    env.insert("shift-to".to_string(), BLispExpr::SpecialForm(shift_to));
 
     env
 }

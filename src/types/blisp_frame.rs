@@ -12,7 +12,7 @@ pub type BLispCallStack = Cactus<BLispFrame>;
 pub fn format_call_stack(mut stack: BLispCallStack) ->  String {
     let mut formatted_stack: Vec<String> = vec![];
     while let Some(frame) = stack.val() {
-        formatted_stack.push(format!("{}", frame));
+        formatted_stack.push(format!("{}{}", if let BLispFrameType::Continuation(Some(label)) = &frame.frame_type { format!("{}: ", label) } else { format!("") }, frame));
         if let Some(parent) = stack.parent() {
             stack = parent;
         } else {
@@ -28,15 +28,26 @@ pub fn format_call_stack(mut stack: BLispCallStack) ->  String {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum BLispFrameType {
+    Anonymous,
+    Continuation(Option<String>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct BLispFrame {
     pub expr: BLispExpr,
     pub eval_buffer: Vec<BLispExpr>,
     pub env: Rc<BLispEnv>,
+    pub frame_type: BLispFrameType
 }
 
 impl BLispFrame {
     pub fn new(expr: BLispExpr, eval_buffer: Vec<BLispExpr>, env: Rc<BLispEnv>) -> BLispFrame {
-        BLispFrame { expr, eval_buffer, env }
+        BLispFrame { expr, eval_buffer, env, frame_type: BLispFrameType::Anonymous }
+    }
+
+    pub fn new_cont(expr: BLispExpr, eval_buffer: Vec<BLispExpr>, env: Rc<BLispEnv>, cont_tag: Option<String>) -> BLispFrame {
+        BLispFrame { expr, eval_buffer, env, frame_type: BLispFrameType::Continuation(cont_tag) }
     }
 
     pub fn list_step(&self, nexpr: BLispExpr) -> BLispFrame {
@@ -51,6 +62,13 @@ impl BLispFrame {
         new_frame.eval_buffer.push(nexpr);
 
         new_frame
+    }
+
+    pub fn matches_continuation(&self, tag: Option<String>) -> bool {
+        match &self.frame_type {
+            BLispFrameType::Anonymous => false,
+            BLispFrameType::Continuation(self_tag) => *self_tag == tag || tag == None,
+        }
     }
 }
 
