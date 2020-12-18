@@ -5,6 +5,8 @@ use std::fs;
 use std::rc::Rc;
 use std::convert::TryInto;
 
+use rand::Rng;
+
 use crate::types::{
     BLispExpr,
     BLispEvalResult,
@@ -61,6 +63,23 @@ fn seq(mut args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEva
     }
     
     return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list given to sequence. Found: {}", args), None))
+}
+
+fn gen_sym(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
+    fn gen_sym_num() -> i32 {
+        let mut rng = rand::thread_rng();
+        rng.gen()
+    }
+
+    if args == BLispExpr::Nil {
+        let mut sym = format!("gsym_{}", gen_sym_num());
+        while let Some(_) = env.get(&sym) {
+            sym = format!("gsym_{}", gen_sym_num());
+        }
+        BLispEvalResult::Result(BLispExpr::Symbol(sym))
+    } else {
+        BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("gen-sym takes no arguments. Found: {}", args), None))
+    }
 }
 
 fn collect_string(mut string_expr: BLispExpr) -> String {
@@ -980,6 +999,7 @@ pub fn shift_impl(body: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack, reset_
     if let Some(mut cur_node) = cc.parent() {
         while let Some(cur_frame) = cur_node.val() {
             if cur_frame.matches_continuation(reset_label.clone()) {
+                frame_list.push(cur_frame.clone());
                 break;
             } else {
                 frame_list.push(cur_frame.clone());
@@ -1095,6 +1115,7 @@ pub fn default_env() -> BLispEnv {
     env.insert("parse".to_string(), BLispExpr::Function(parse));
 
     env.insert("exit".to_string(), BLispExpr::Function(exit));
+    env.insert("gen-sym".to_string(), BLispExpr::Function(gen_sym));
 
     env.insert("print".to_string(), BLispExpr::Function(print_std));
     env.insert("debug".to_string(), BLispExpr::Function(debug));

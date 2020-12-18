@@ -56,7 +56,7 @@ impl BLispEnv {
                                     args = *value_rest;
                                     new_env.insert(name, value)
                                 },
-                                (_, _) => panic!("Argument names must be of type Symbol"),
+                                (unexpected, _) => panic!("Argument names must be of type Symbol. Found: {}", unexpected),
                             }
                         },
                         (BLispExpr::Symbol(symbol_text), remaining) => {
