@@ -1,5 +1,4 @@
 (let* ((start-yield (macro (yield-sym expr) 
-                        (let ((reset-label gen-sym))
-                        ,`((lambda (,yield-sym) (reset-as reset-label ,expr))
-                          (lambda (x) (shift-to reset-label (lambda (k) (cons x (k ()))))))))))
+                        ,`((lambda (,yield-sym) (reset ,expr))
+                          (lambda (x) (shift (lambda (k) (cons x (k ())))))))))
     `((start-yield ,start-yield)))
