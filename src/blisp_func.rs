@@ -978,22 +978,6 @@ pub fn reset(args: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack) -> BLispEva
     }
 }
 
-pub fn reset_as(args: BLispExpr, env:Rc<BLispEnv>, cc: BLispCallStack) -> BLispEvalResult {
-    if let BLispExpr::SExp(label, rest) = args {
-        if let BLispExpr::Symbol(label) = *label {
-            if let Some(parent) = cc.parent() {
-                BLispEvalResult::Stack(parent.child(BLispFrame::new_cont(BLispExpr::cons_sexp(BLispExpr::Function(reset_impl), *rest), vec![], env, Some(label))))
-            } else {
-                panic!("No parent for reset-as frame")
-            }
-        } else {
-            panic!("No symbol provided to reset-as")
-        }
-    } else {
-        panic!("Malformed argument list provided to reset: {}", args)
-    }
-}
-                    
 pub fn shift_impl(body: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack, reset_label: Option<String>) -> BLispEvalResult {
     let mut frame_list: Vec<BLispFrame> = vec![];
     if let Some(mut cur_node) = cc.parent() {
@@ -1026,22 +1010,6 @@ pub fn shift(args: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack) -> BLispEva
             shift_impl(*arg, env, cc, None)
         } else {
             panic!("Too many arguments provided to shift: {}", *nil)
-        }
-    } else {
-        panic!("Malformed argument list provided to shift: {}", args)
-    }
-}
-
-pub fn shift_to(args: BLispExpr, env: Rc<BLispEnv>, cc: BLispCallStack) -> BLispEvalResult {
-    if let BLispExpr::SExp(label, rest) = args {
-        if let (BLispExpr::Symbol(label), BLispExpr::SExp(arg, nil)) = (*label, *rest) {
-            if *nil == BLispExpr::Nil {
-                shift_impl(*arg, env, cc, Some(label))
-            } else {
-                panic!("Too many arguments provided to shift: {}", *nil)
-            }
-        } else {
-            panic!("No label provided to shift-to")
         }
     } else {
         panic!("Malformed argument list provided to shift: {}", args)
@@ -1122,9 +1090,7 @@ pub fn default_env() -> BLispEnv {
     env.insert("read".to_string(), BLispExpr::Function(read_std));
 
     env.insert("reset".to_string(), BLispExpr::SpecialForm(reset));
-    env.insert("reset-as".to_string(), BLispExpr::SpecialForm(reset_as));
     env.insert("shift".to_string(), BLispExpr::SpecialForm(shift));
-    env.insert("shift-to".to_string(), BLispExpr::SpecialForm(shift_to));
 
     env
 }
