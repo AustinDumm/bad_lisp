@@ -301,75 +301,76 @@ where I: Iterator<Item = char> {
 #[cfg(test)]
 mod lex_tests {
     use super::*;
+    use std::collections::VecDeque;
     
     #[test]
     fn lexes_single_delimiters() {
-        assert_eq!(lex(String::from("(")), vec![BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis)]);
-        assert_eq!(lex(String::from("[")), vec![BLispTokenType::OpenDelimiter(BLispBrace::SquareBrack)]);
-        assert_eq!(lex(String::from("{")), vec![BLispTokenType::OpenDelimiter(BLispBrace::CurlyBrack)]);
+        assert_eq!(lex(String::from("(")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis), (0, 0))])));
+        assert_eq!(lex(String::from("[")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::SquareBrack), (0, 0))])));
+        assert_eq!(lex(String::from("{")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::CurlyBrack), (0, 0))])));
 
-        assert_eq!(lex(String::from(")")), vec![BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis)]);
-        assert_eq!(lex(String::from("]")), vec![BLispTokenType::CloseDelimiter(BLispBrace::SquareBrack)]);
-        assert_eq!(lex(String::from("}")), vec![BLispTokenType::CloseDelimiter(BLispBrace::CurlyBrack)]);
+        assert_eq!(lex(String::from(")")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (0, 0))])));
+        assert_eq!(lex(String::from("]")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::SquareBrack), (0, 0))])));
+        assert_eq!(lex(String::from("}")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::CurlyBrack), (0, 0))])));
 
-        assert_eq!(lex(String::from(".")), vec![BLispTokenType::SExpDot]);
+        assert_eq!(lex(String::from(".")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::SExpDot, (0, 0))])));
     }
 
     #[test]
     fn lexes_single_exprs() {
-        assert_eq!(lex(String::from("\\0")), vec![BLispTokenType::Expr(BLispExpr::Nil)]);
+        assert_eq!(lex(String::from("\\0")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Nil), (0, 0))])));
 
-        assert_eq!(lex(String::from("#t")), vec![BLispTokenType::Expr(BLispExpr::Bool(true))]);
-        assert_eq!(lex(String::from("#f")), vec![BLispTokenType::Expr(BLispExpr::Bool(false))]);
+        assert_eq!(lex(String::from("#t")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Bool(true)), (0, 0))])));
+        assert_eq!(lex(String::from("#f")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Bool(false)), (0, 0))])));
 
-        assert_eq!(lex(String::from("50")), vec![BLispTokenType::Expr(BLispExpr::Number(50))]);
-        assert_eq!(lex(String::from("-50")), vec![BLispTokenType::Expr(BLispExpr::Number(-50))]);
+        assert_eq!(lex(String::from("50")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(50)), (0, 0))])));
+        assert_eq!(lex(String::from("-50")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(-50)), (0, 0))])));
 
-        assert_eq!(lex(String::from("6.29")), vec![BLispTokenType::Expr(BLispExpr::Float(6.29))]);
-        assert_eq!(lex(String::from("-6.29")), vec![BLispTokenType::Expr(BLispExpr::Float(-6.29))]);
+        assert_eq!(lex(String::from("6.29")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Float(6.29)), (0, 0))])));
+        assert_eq!(lex(String::from("-6.29")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Float(-6.29)), (0, 0))])));
 
-        assert_eq!(lex(String::from("#\\a")), vec![BLispTokenType::Expr(BLispExpr::Char('a'))]);
-        assert_eq!(lex(String::from("#\\34")), vec![BLispTokenType::Expr(BLispExpr::Char('"'))]);
+        assert_eq!(lex(String::from("#\\a")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Char('a')), (0, 0))])));
+        assert_eq!(lex(String::from("#\\34")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Char('"')), (0, 0))])));
 
-        assert_eq!(lex(String::from("\"testing\"")), vec![BLispTokenType::StringLiteral(vec!['t','e','s','t','i','n','g'])]);
-        assert_eq!(lex(String::from("\"te\\nng\"")), vec![BLispTokenType::StringLiteral(vec!['t','e','\n','n','g'])]);
+        assert_eq!(lex(String::from("\"testing\"")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::StringLiteral(vec!['t','e','s','t','i','n','g']), (0, 0))])));
+        assert_eq!(lex(String::from("\"te\\nng\"")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::StringLiteral(vec!['t','e','\n','n','g']), (0, 0))])));
 
-        assert_eq!(lex(String::from("+")), vec![BLispTokenType::Expr(BLispExpr::Symbol(String::from("+")))]);
-        assert_eq!(lex(String::from("testing")), vec![BLispTokenType::Expr(BLispExpr::Symbol(String::from("testing")))]);
+        assert_eq!(lex(String::from("+")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol(String::from("+"))), (0, 0))])));
+        assert_eq!(lex(String::from("testing")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol(String::from("testing"))), (0, 0))])));
     }
 
     #[test]
     fn lexes_compound_exprs() {
         assert_eq!(lex(String::from("(blah 1 2.3)")),
-                   vec![BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis),
-                        BLispTokenType::Expr(BLispExpr::Symbol(String::from("blah"))),
-                        BLispTokenType::Expr(BLispExpr::Number(1)),
-                        BLispTokenType::Expr(BLispExpr::Float(2.3)),
-                        BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis)]);
+                   Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis), (0, 0)),
+                                         BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol(String::from("blah"))), (0, 0)),
+                                         BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(1)), (0, 0)),
+                                         BLispToken::new(BLispTokenType::Expr(BLispExpr::Float(2.3)), (0, 0)),
+                                         BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (0, 0))])));
 
         assert_eq!(lex(String::from("[one {two 1 2}]")),
-                   vec![BLispTokenType::OpenDelimiter(BLispBrace::SquareBrack),
-                        BLispTokenType::Expr(BLispExpr::Symbol(String::from("one"))),
-                        BLispTokenType::OpenDelimiter(BLispBrace::CurlyBrack),
-                        BLispTokenType::Expr(BLispExpr::Symbol(String::from("two"))),
-                        BLispTokenType::Expr(BLispExpr::Number(1)),
-                        BLispTokenType::Expr(BLispExpr::Number(2)),
-                        BLispTokenType::CloseDelimiter(BLispBrace::CurlyBrack),
-                        BLispTokenType::CloseDelimiter(BLispBrace::SquareBrack)]);
+                   Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::SquareBrack), (0, 0)),
+                                          BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol(String::from("one"))), (0, 0)),
+                                          BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::CurlyBrack), (0, 0)),
+                                          BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol(String::from("two"))), (0, 0)),
+                                          BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(1)), (0, 0)),
+                                          BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(2)), (0, 0)),
+                                          BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::CurlyBrack), (0, 0)),
+                                          BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::SquareBrack), (0, 0))])));
 
         assert_eq!(lex(String::from("(one . (1 . (2 . \\0)))")),
-                   vec![BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis),
-                        BLispTokenType::Expr(BLispExpr::Symbol(String::from("one"))),
-                        BLispTokenType::SExpDot,
-                        BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis),
-                        BLispTokenType::Expr(BLispExpr::Number(1)),
-                        BLispTokenType::SExpDot,
-                        BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis),
-                        BLispTokenType::Expr(BLispExpr::Number(2)),
-                        BLispTokenType::SExpDot,
-                        BLispTokenType::Expr(BLispExpr::Nil),
-                        BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis),
-                        BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis),
-                        BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis)]);
+                   Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis), (0, 0)),
+                                          BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol(String::from("one"))), (0, 0)),
+                                          BLispToken::new(BLispTokenType::SExpDot, (0, 0)),
+                                          BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis), (0, 0)),
+                                          BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(1)), (0, 0)),
+                                          BLispToken::new(BLispTokenType::SExpDot, (0, 0)),
+                                          BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis), (0, 0)),
+                                          BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(2)), (0, 0)),
+                                          BLispToken::new(BLispTokenType::SExpDot, (0, 0)),
+                                          BLispToken::new(BLispTokenType::Expr(BLispExpr::Nil), (0, 0)),
+                                          BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (0, 0)),
+                                          BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (0, 0)),
+                                          BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (0, 0))])));
     }
 }
