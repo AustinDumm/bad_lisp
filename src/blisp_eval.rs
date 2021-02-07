@@ -200,11 +200,13 @@ mod blisp_eval_tests {
                 ),
                 Rc::new(default_env())
             ),
-            BLispExpr::cons_sexp(
-                BLispExpr::Number(5),
+            BLispEvalResult::Result(
                 BLispExpr::cons_sexp(
-                    BLispExpr::Number(6),
-                    BLispExpr::Nil
+                    BLispExpr::Number(5),
+                    BLispExpr::cons_sexp(
+                        BLispExpr::Number(6),
+                        BLispExpr::Nil
+                    )
                 )
             )
         );
@@ -223,7 +225,9 @@ mod blisp_eval_tests {
                 ),
                 Rc::new(default_env())
             ),
-            BLispExpr::Number(11)
+            BLispEvalResult::Result(
+                BLispExpr::Number(11)
+            )
         );
     }
 }
