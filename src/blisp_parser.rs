@@ -138,10 +138,10 @@ mod blisp_parser_tests {
             parse(&mut VecDeque::from(vec![BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis), (0, 0)),
                                            BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(5)), (0, 0)),
                                            BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (0, 0))])),
-            BLispExpr::cons_sexp(
+            Ok(BLispExpr::cons_sexp(
                 BLispExpr::Number(5),
                 BLispExpr::Nil
-            )
+            ))
         );
 
         assert_eq!(
@@ -149,13 +149,13 @@ mod blisp_parser_tests {
                                            BLispToken::new(BLispTokenType::Expr(BLispExpr::Bool(true)), (0, 0)),
                                            BLispToken::new(BLispTokenType::Expr(BLispExpr::Float(3.82)), (0, 0)),
                                            BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::SquareBrack), (0, 0))])),
-            BLispExpr::cons_sexp(
+            Ok(BLispExpr::cons_sexp(
                 BLispExpr::Bool(true),
                 BLispExpr::cons_sexp(
                     BLispExpr::Float(3.82),
                     BLispExpr::Nil
                 )
-            )
+            ))
         );
 
         assert_eq!(
@@ -164,7 +164,7 @@ mod blisp_parser_tests {
                                            BLispToken::new(BLispTokenType::Expr(BLispExpr::Char('e')), (0, 0)),
                                            BLispToken::new(BLispTokenType::Expr(BLispExpr::Bool(false)), (0, 0)),
                                            BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::CurlyBrack), (0, 0))])),
-            BLispExpr::cons_sexp(
+            Ok(BLispExpr::cons_sexp(
                 BLispExpr::Symbol("foo".to_string()),
                 BLispExpr::cons_sexp(
                     BLispExpr::Char('e'),
@@ -173,7 +173,7 @@ mod blisp_parser_tests {
                         BLispExpr::Nil
                     )
                 )
-            )
+            ))
         );
     }
 
@@ -189,7 +189,7 @@ mod blisp_parser_tests {
                                            BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (0, 0)),
                                            BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(-3)), (0, 0)),
                                            BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::SquareBrack), (0, 0))])),
-            BLispExpr::cons_sexp(
+            Ok(BLispExpr::cons_sexp(
                 BLispExpr::Symbol("foo".to_string()),
                 BLispExpr::cons_sexp(
                     BLispExpr::cons_sexp(
@@ -207,7 +207,7 @@ mod blisp_parser_tests {
                         BLispExpr::Nil
                     )
                 )
-            )
+            ))
         );
     }
 
@@ -219,10 +219,10 @@ mod blisp_parser_tests {
                                            BLispToken::new(BLispTokenType::SExpDot, (0, 0)),
                                            BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(4)), (0, 0)),
                                            BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (0, 0))])),
-            BLispExpr::cons_sexp(
+            Ok(BLispExpr::cons_sexp(
                 BLispExpr::Number(3),
                 BLispExpr::Number(4)
-            )
+            ))
         );
 
         assert_eq!(
@@ -239,7 +239,7 @@ mod blisp_parser_tests {
                                            BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(6)), (0, 0)),
                                            BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (0, 0)),
                                            BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (0, 0))])),
-            BLispExpr::cons_sexp(
+            Ok(BLispExpr::cons_sexp(
                 BLispExpr::cons_sexp(
                     BLispExpr::Number(3),
                     BLispExpr::Number(4)
@@ -248,7 +248,7 @@ mod blisp_parser_tests {
                     BLispExpr::Number(5),
                     BLispExpr::Number(6)
                 ),
-            )
+            ))
         );
     }
 
@@ -259,7 +259,7 @@ mod blisp_parser_tests {
                                            BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol("foo".to_string())), (0, 0)),
                                            BLispToken::new(BLispTokenType::StringLiteral(vec!['t','e','s','t']), (0, 0)),
                                            BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (0, 0))])),
-            BLispExpr::cons_sexp(
+            Ok(BLispExpr::cons_sexp(
                 BLispExpr::Symbol("foo".to_string()),
                 BLispExpr::cons_sexp(
                     BLispExpr::cons_sexp(
@@ -277,7 +277,7 @@ mod blisp_parser_tests {
                     ),
                     BLispExpr::Nil
                 )
-            )
+            ))
         );
     }
 }
