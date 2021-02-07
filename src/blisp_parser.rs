@@ -130,7 +130,7 @@ pub fn parse_string_literal(queue: &mut VecDeque<BLispToken>) -> BLispExprResult
 #[cfg(test)]
 mod blisp_parser_tests {
     use super::*;
-    use crate::blisp_lexer::BLispBrace;
+    use crate::types::BLispBrace;
 
     #[test]
     fn parses_simple_lists() {
