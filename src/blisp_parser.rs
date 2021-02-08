@@ -263,16 +263,22 @@ mod blisp_parser_tests {
                 BLispExpr::Symbol("foo".to_string()),
                 BLispExpr::cons_sexp(
                     BLispExpr::cons_sexp(
-                        BLispExpr::Char('t'),
+                        BLispExpr::SpecialForm(crate::blisp_func::quote),
                         BLispExpr::cons_sexp(
-                            BLispExpr::Char('e'),
                             BLispExpr::cons_sexp(
-                                BLispExpr::Char('s'),
+                                BLispExpr::Char('t'),
                                 BLispExpr::cons_sexp(
-                                    BLispExpr::Char('t'),
-                                    BLispExpr::Nil
+                                    BLispExpr::Char('e'),
+                                    BLispExpr::cons_sexp(
+                                        BLispExpr::Char('s'),
+                                        BLispExpr::cons_sexp(
+                                            BLispExpr::Char('t'),
+                                            BLispExpr::Nil
+                                        )
+                                    )
                                 )
-                            )
+                            ),
+                            BLispExpr::Nil
                         )
                     ),
                     BLispExpr::Nil
