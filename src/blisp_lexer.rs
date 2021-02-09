@@ -31,9 +31,6 @@ pub fn lex(raw_string: String) -> Result<VecDeque<BLispToken>, String> {
                     char_iterator.next();
                     Ok(BLispToken::new(BLispTokenType::SExpDot, position))
                 },
-                '\\' => {
-                    lex_backslash(&mut char_iterator)
-                },
                 '#' => {
                     lex_octothorpe(&mut char_iterator)
                 },
@@ -78,20 +75,6 @@ where I: Iterator<Item = char> {
         Some(character) if BLispTokenType::is_close_delimiter(&character) => Ok(BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::from(character)), position)),
         Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected character read as delimiter: {}", character), Some(position))),
         None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end to character stream while lexing delimiter"), Some(position))),
-    }
-}
-
-fn lex_backslash<I>(iterator: &mut BLispCharacterStream<I>) -> BLispTokenResult 
-where I: Iterator<Item = char> {
-    let position = iterator.current_position();
-    iterator.next();
-    match iterator.peek() {
-        Some('0') => {
-            iterator.next();
-            Ok(BLispToken::new(BLispTokenType::Expr(BLispExpr::Nil), position))
-        }
-        Some(character) => Err(BLispError::new(BLispErrorType::Lexing, format!("Unhandled character: \\{}", character), Some(position))),
-        None => Err(BLispError::new(BLispErrorType::Lexing, format!("Unexpected end of token stream after backslash"), Some(position))),
     }
 }
 
@@ -318,8 +301,6 @@ mod lex_tests {
 
     #[test]
     fn lexes_single_exprs() {
-        assert_eq!(lex(String::from("\\0")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Nil), (1, 1))])));
-
         assert_eq!(lex(String::from("#t")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Bool(true)), (1, 1))])));
         assert_eq!(lex(String::from("#f")), Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::Expr(BLispExpr::Bool(false)), (1, 1))])));
 
@@ -358,7 +339,7 @@ mod lex_tests {
                                           BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::CurlyBrack), (1, 14)),
                                           BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::SquareBrack), (1, 15))])));
 
-        assert_eq!(lex(String::from("(one . (1 . (2 . \\0)))")),
+        assert_eq!(lex(String::from("(one . (1 . (2 . ())))")),
                    Ok(VecDeque::from(vec![BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis), (1, 1)),
                                           BLispToken::new(BLispTokenType::Expr(BLispExpr::Symbol(String::from("one"))), (1, 2)),
                                           BLispToken::new(BLispTokenType::SExpDot, (1, 6)),
@@ -368,7 +349,8 @@ mod lex_tests {
                                           BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis), (1, 13)),
                                           BLispToken::new(BLispTokenType::Expr(BLispExpr::Number(2)), (1, 14)),
                                           BLispToken::new(BLispTokenType::SExpDot, (1, 16)),
-                                          BLispToken::new(BLispTokenType::Expr(BLispExpr::Nil), (1, 18)),
+                                          BLispToken::new(BLispTokenType::OpenDelimiter(BLispBrace::Parenthesis), (1, 18)),
+                                          BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (1, 19)),
                                           BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (1, 20)),
                                           BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (1, 21)),
                                           BLispToken::new(BLispTokenType::CloseDelimiter(BLispBrace::Parenthesis), (1, 22))])));
