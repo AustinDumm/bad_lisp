@@ -1,0 +1,7 @@
+(dyn-let (load "./library/lib.bl")
+    ((Y (lambda (f)
+        (lambda (first . rest)
+            (if (nil? rest)
+                first
+                (* first (f . rest)))))) 2 3 4 5)
+)
