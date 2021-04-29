@@ -631,7 +631,10 @@ fn bind_single_binding(binding: BLispExpr, eval_env: Rc<BLispEnv>, env: &mut BLi
             match (*symbol, *value, *rest) {
                 (BLispExpr::Symbol(name), value, BLispExpr::Nil) => { 
                     match evaluate(value, eval_env) {
-                        BLispEvalResult::Result(value) => env.insert(name, value),
+                        BLispEvalResult::Result(value) => {
+                            env.insert(name, value);
+                            return;
+                        },
                         BLispEvalResult::Error(error) => panic!("{}", error),
                         BLispEvalResult::TailCall(_, _) => panic!("TailCall found as result to binding list expr"),
                         BLispEvalResult::Stack(_) => panic!("Stack found as result to binding list expr"),
@@ -641,6 +644,7 @@ fn bind_single_binding(binding: BLispExpr, eval_env: Rc<BLispEnv>, env: &mut BLi
             }
         }
     }
+    panic!("Unexpected structure for binding");
 }
 
 fn bind_from_binding_list(mut binding_list: BLispExpr, eval_env: Rc<BLispEnv>, env: &mut BLispEnv) {
@@ -648,6 +652,8 @@ fn bind_from_binding_list(mut binding_list: BLispExpr, eval_env: Rc<BLispEnv>, e
         if let BLispExpr::SExp(binding, rest) = binding_list {
             bind_single_binding(*binding, eval_env.clone(), env);
             binding_list = *rest;
+        } else {
+            panic!("Unexpected structure for binding list");
         }
     }
 }

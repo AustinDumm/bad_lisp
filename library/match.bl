@@ -18,7 +18,7 @@
                                                               (second-elt (first second-expr))
                                                               (second-rest (rest second-expr)))
                                                              (cond (((is-unquoted first-elt) 
-                                                                        (f first-rest second-rest (cons `(,(get-quoted-elt first-elt) ,second-elt) matched-pairs)))
+                                                                        (f first-rest second-rest (cons `(,(get-quoted-elt first-elt) ',second-elt) matched-pairs)))
                                                                     ((and (list? first-elt) (list? second-elt))
                                                                         (let* ((elt-result (f first-elt second-elt matched-pairs))
                                                                                (elt-success (first elt-result))
