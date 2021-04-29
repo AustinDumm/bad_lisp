@@ -35,7 +35,7 @@
                                                              )))
                                                    ((= first-expr second-expr)
                                                         `(,#t ,matched-pairs))))))))
-                   (match-impl (Y (lambda (f)
+                   (match (Y (lambda (f)
                                    (lambda (value . options)
                                     (if (nil? options)
                                         ()
@@ -49,9 +49,7 @@
                                               (if success
                                                   (dyn-let match-list ,opt-exe)
                                                   (apply f (cons value rest-opt))))))))))
-                                         
-                `((structure-match ,structure-match)
-                  (match ,match-impl))
+                `((match ,match))
             )
     )
 )
