@@ -630,12 +630,12 @@ fn bind_single_binding(binding: BLispExpr, eval_env: Rc<BLispEnv>, env: &mut BLi
         if let BLispExpr::SExp(value, rest) = *rest {
             match (*symbol, *value, *rest) {
                 (BLispExpr::Symbol(name), value, BLispExpr::Nil) => { 
-                    match evaluate(value, eval_env) {
+                    match evaluate(value.clone(), eval_env) {
                         BLispEvalResult::Result(value) => {
                             env.insert(name, value);
                             return;
                         },
-                        BLispEvalResult::Error(error) => panic!("{}", error),
+                        BLispEvalResult::Error(error) => panic!("{} - {}", error, value.clone()),
                         BLispEvalResult::TailCall(_, _) => panic!("TailCall found as result to binding list expr"),
                         BLispEvalResult::Stack(_) => panic!("Stack found as result to binding list expr"),
                     }

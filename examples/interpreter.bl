@@ -1,0 +1,38 @@
+(dyn-let (load "./library/lib.bl")
+(dyn-let (load "./library/pat.bl")
+    (let* ((eval-expr (Y (lambda (f) (lambda (expr env)
+                                    (match-mac expr
+                                        [(,rator ,rand)
+                                            ((f rator env) (f rand env))]
+                                        [(lambda (,x) ,body)
+                                            (lambda (arg)
+                                                (f body (lambda (sym)
+                                                            (if (= sym x)
+                                                                arg
+                                                                (env sym)))))]
+                                        [,x
+                                            (cond
+                                                (((symbol? x)
+                                                    (env x))
+                                                 (#t x)))])))))
+           (curry-add 
+                (lambda (lhs)
+                    (lambda (rhs)
+                        (+ lhs rhs))))
+           (init-env (lambda (sym)
+                        (cond (
+                            ((= sym '+)
+                                curry-add)
+                            ((= sym 'exit)
+                                exit)
+                            (#t (seq (print "Failure to lookup symbol:")
+                                     (debug sym)
+                                     (exit)))))))
+           (run (Y (lambda (f) 
+                        (seq (print "=>")
+                             (let ((evaluated (eval-expr (parse (read)) init-env)))
+                                    (debug evaluated))
+                             (f))))))
+            `((eval-expr ,eval-expr)
+              (run ,run)))))
+

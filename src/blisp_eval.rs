@@ -163,7 +163,7 @@ fn stack_eval_list(stack: BLispCallStack, operation_args: (BLispExpr, BLispExpr)
                     panic!("Malformed arguments given to delimited continuation")
                 }
             }
-            _ => panic!("Unapplicable element used as operation"),
+            (first, second) => panic!("Unapplicable element used as operation: ({} {})", first, second),
         }
     } else {
         panic!("Empty node given to stack_eval_list")
