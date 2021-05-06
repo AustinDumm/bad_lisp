@@ -1171,10 +1171,10 @@ pub fn default_env() -> BLispEnv {
     env.insert("<<rb".to_string(), BLispExpr::Function(left_rotate_base));
     env.insert(">>rb".to_string(), BLispExpr::Function(right_rotate_base));
 
-    env.insert("bit_not".to_string(), BLispExpr::Function(b_not));
-    env.insert("bit_and".to_string(), BLispExpr::Function(b_and));
-    env.insert("bit_or".to_string(), BLispExpr::Function(b_or));
-    env.insert("bit_xor".to_string(), BLispExpr::Function(b_xor));
+    env.insert("bit-not".to_string(), BLispExpr::Function(b_not));
+    env.insert("bit-and".to_string(), BLispExpr::Function(b_and));
+    env.insert("bit-or".to_string(), BLispExpr::Function(b_or));
+    env.insert("bit-xor".to_string(), BLispExpr::Function(b_xor));
 
     env.insert("cons".to_string(), BLispExpr::Function(cons));
     env.insert("first".to_string(), BLispExpr::Function(first));

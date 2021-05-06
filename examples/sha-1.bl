@@ -1,0 +1,36 @@
+(dyn-let (load "./library/lib.bl")
+(dyn-let (load "./library/gen.bl")
+    (let* ((word-length 32)
+           (words-in-block 16)
+           (parse-to-word-list
+                (lambda (character-list)
+                    (map char->int character-list)))
+           (calculate-padding-length
+                (lambda (length)
+                    (let* ((message-with-info-length (+ 3 length))
+                           (padding-length (- words-in-block (mod message-with-info-length words-in-block))))
+                       padding-length)))
+           (generate-padding
+                (lambda (message-length)
+                    (let ((padding-length (calculate-padding-length message-length)))
+                        (start-yield yield
+                            (seq
+                                (yield (<< 1 (- word-length 1)))
+                                ((Y (lambda (f)
+                                        (lambda (padding-left)
+                                            (if (= padding-left 0)
+                                                ()
+                                                (seq
+                                                    (yield 0)
+                                                    (f (- padding-left 1))))))) padding-length)
+                                (yield (>> message-length word-length))
+                                (yield (bit-and message-length (bit-not (<< -1 word-length))))
+                                ())))))
+           (pad-word-list
+                 (lambda (word-list)
+                    (append word-list (generate-padding (count word-list))))))
+    `(
+        (pad-word-list ,pad-word-list)
+     )
+)))
+                        
