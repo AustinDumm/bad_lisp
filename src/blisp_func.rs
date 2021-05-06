@@ -4,6 +4,7 @@ use std::fs;
 
 use std::rc::Rc;
 use std::convert::TryInto;
+use std::convert::TryFrom;
 
 use rand::Rng;
 
@@ -294,6 +295,118 @@ fn modulo(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEval
     }
 
     BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Add expects two arguments. Found: {}", args), None))
+}
+
+//=============== Shift Operators ===============
+fn left_shift(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
+    if let BLispExpr::SExp(first, rest) = args.clone() {
+        if let BLispExpr::SExp(second, rest) = *rest {
+            if *rest == BLispExpr::Nil {
+                return match (*first, *second) {
+                    (BLispExpr::Number(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Number(first << second)),
+                    (first, second) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to left shift. Found: {} {}", first, second), None))
+                }
+            }
+        }
+    }
+
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Left shift expects two arguments. Found: {}", args), None))
+}
+
+fn right_shift(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
+    if let BLispExpr::SExp(first, rest) = args.clone() {
+        if let BLispExpr::SExp(second, rest) = *rest {
+            if *rest == BLispExpr::Nil {
+                return match (*first, *second) {
+                    (BLispExpr::Number(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Number(first >> second)),
+                    (first, second) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to right shift. Found: {} {}", first, second), None))
+                }
+            }
+        }
+    }
+
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Left shift expects two arguments. Found: {}", args), None))
+}
+
+fn left_rotate(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
+    if let BLispExpr::SExp(first, rest) = args.clone() {
+        if let BLispExpr::SExp(second, rest) = *rest {
+            if *rest == BLispExpr::Nil {
+                return match (*first, *second) {
+                    (BLispExpr::Number(first), BLispExpr::Number(second))  => {
+                        BLispEvalResult::Result(BLispExpr::Number(i64::from(first.rotate_left(u64::try_from(second).expect("Left rotate amount must be positive integer").try_into().unwrap()))))
+                    },
+                    (first, second) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to left rotate. Found: {} {}", first, second), None))
+                }
+            }
+        }
+    }
+
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Left shift expects two arguments. Found: {}", args), None))
+}
+
+fn right_rotate(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
+    if let BLispExpr::SExp(first, rest) = args.clone() {
+        if let BLispExpr::SExp(second, rest) = *rest {
+            if *rest == BLispExpr::Nil {
+                return match (*first, *second) {
+                    (BLispExpr::Number(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Number(first.rotate_right(u32::try_from(second).expect("Right rotate amount must be positive integer")))),
+                    (first, second) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to right rotate. Found: {} {}", first, second), None))
+                }
+            }
+        }
+    }
+
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Left shift expects two arguments. Found: {}", args), None))
+}
+
+fn left_rotate_base(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
+    if let BLispExpr::SExp(first, rest) = args.clone() {
+        if let BLispExpr::SExp(second, rest) = *rest {
+            if let BLispExpr::SExp(third, rest) = *rest {
+                if *rest == BLispExpr::Nil {
+                    return match (*first, *second, *third) {
+                        (BLispExpr::Number(first), BLispExpr::Number(second), BLispExpr::Number(third))  => {
+                            let mask: i64 = -1;
+                            let overflow = first >> (third - second);
+                            let wrapping = overflow & !(mask << second);
+                            let result = ((first << second) & !(mask << third)) | wrapping;
+                            BLispEvalResult::Result(BLispExpr::Number(result))
+                        },
+                        (first, second, third) => 
+                            BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to left rotate with base. Found: {} {} {}", first, second, third), None)),
+                    }
+                }
+            }
+        }
+    }
+
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Left rotate with base expects three arguments. Found: {}", args), None))
+}
+
+fn right_rotate_base(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
+    if let BLispExpr::SExp(first, rest) = args.clone() {
+        if let BLispExpr::SExp(second, rest) = *rest {
+            if let BLispExpr::SExp(third, rest) = *rest {
+                if *rest == BLispExpr::Nil {
+                    return match (*first, *second, *third) {
+                        (BLispExpr::Number(first), BLispExpr::Number(second), BLispExpr::Number(third))  => {
+                            let mask: i64 = -1;
+                            println!("{:X}", mask);
+                            let overflow = first << (third - second);
+                            let wrapping = overflow & !(mask << third);
+                            let result = ((first >> second) & !(mask << (third - second))) | wrapping;
+                            BLispEvalResult::Result(BLispExpr::Number(result))
+                        },
+                        (first, second, third) => 
+                            BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to right rotate with base. Found: {} {} {}", first, second, third), None)),
+                    }
+                }
+            }
+        }
+    }
+
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Right rotate with base expects three arguments. Found: {}", args), None))
 }
 
 //=============== Logical Operators ===============
@@ -742,6 +855,19 @@ fn load(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalRes
     BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list passed to load. Found: {}", args), None))
 }
 
+//=============== Type Conversion ===============
+
+fn char_to_int(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
+    if let BLispExpr::SExp(arg, rest) = args.clone() {
+        match (*arg, *rest) {
+            (BLispExpr::Char(character), BLispExpr::Nil) => return BLispEvalResult::Result(BLispExpr::Number(u32::from(character).into())),
+            (first, rest) =>
+                return BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("char->int must take single character argument. Found: {} {}", first, rest), None)),
+        }
+    }
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Malformed list passed to char->int. Found: {}", args), None))
+}
+
 //=============== Lambda Creation ===============
 fn lambda(args: BLispExpr, env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
     if let BLispExpr::SExp(binding_list, rest) = args.clone() {
@@ -1038,6 +1164,13 @@ pub fn default_env() -> BLispEnv {
     env.insert("//".to_string(), BLispExpr::Function(div));
     env.insert("mod".to_string(), BLispExpr::Function(modulo));
 
+    env.insert("<<".to_string(), BLispExpr::Function(left_shift));
+    env.insert(">>".to_string(), BLispExpr::Function(right_shift));
+    env.insert("<<r".to_string(), BLispExpr::Function(left_rotate));
+    env.insert(">>r".to_string(), BLispExpr::Function(right_rotate));
+    env.insert("<<rb".to_string(), BLispExpr::Function(left_rotate_base));
+    env.insert(">>rb".to_string(), BLispExpr::Function(right_rotate_base));
+
     env.insert("bit_not".to_string(), BLispExpr::Function(b_not));
     env.insert("bit_and".to_string(), BLispExpr::Function(b_and));
     env.insert("bit_or".to_string(), BLispExpr::Function(b_or));
@@ -1077,6 +1210,8 @@ pub fn default_env() -> BLispEnv {
     env.insert("dyn-let".to_string(), BLispExpr::SpecialForm(dyn_let));
     env.insert("seq".to_string(), BLispExpr::Function(seq));
     env.insert("load".to_string(), BLispExpr::Function(load));
+
+    env.insert("char->int".to_string(), BLispExpr::SpecialForm(char_to_int));
 
     env.insert("lambda".to_string(), BLispExpr::SpecialForm(lambda));
     env.insert("macro".to_string(), BLispExpr::SpecialForm(def_macro));
