@@ -219,7 +219,7 @@ fn sub(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalRes
                     (BLispExpr::Float(first), BLispExpr::Number(second)) => BLispEvalResult::Result(BLispExpr::Float(first - second as f64)),
                     (BLispExpr::Number(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first as f64 - second)),
                     (BLispExpr::Float(first), BLispExpr::Float(second)) => BLispEvalResult::Result(BLispExpr::Float(first - second)),
-                    (first, second) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to sub. Found: {} {}", first, second), None))
+                    (first, second) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to sub. Found: {}, {}", first, second), None))
                 }
             }
         }
@@ -289,6 +289,21 @@ fn modulo(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEval
                 return match (*first, *second) {
                     (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispEvalResult::Result(BLispExpr::Number(first % second)),
                     (first, second) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to modulo. Found: {} {}", first, second), None))
+                }
+            }
+        }
+    }
+
+    BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Add expects two arguments. Found: {}", args), None))
+}
+
+fn pow(args: BLispExpr, _env: Rc<BLispEnv>, _cc: BLispCallStack) -> BLispEvalResult {
+    if let BLispExpr::SExp(first, rest) = args.clone() {
+        if let BLispExpr::SExp(second, rest) = *rest {
+            if *rest == BLispExpr::Nil {
+                return match (*first, *second) {
+                    (BLispExpr::Number(first), BLispExpr::Number(second))  => BLispEvalResult::Result(BLispExpr::Number(first.pow(second.try_into().unwrap()))),
+                    (first, second) => BLispEvalResult::Error(BLispError::new(BLispErrorType::Evaluation, format!("Unexpected types to power. Found: {} {}", first, second), None))
                 }
             }
         }
@@ -1163,6 +1178,7 @@ pub fn default_env() -> BLispEnv {
     env.insert("/".to_string(), BLispExpr::Function(int_div));
     env.insert("//".to_string(), BLispExpr::Function(div));
     env.insert("mod".to_string(), BLispExpr::Function(modulo));
+    env.insert("pow".to_string(), BLispExpr::Function(pow));
 
     env.insert("<<".to_string(), BLispExpr::Function(left_shift));
     env.insert(">>".to_string(), BLispExpr::Function(right_shift));

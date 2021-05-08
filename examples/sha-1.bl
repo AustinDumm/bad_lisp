@@ -23,14 +23,128 @@
                                                 (seq
                                                     (yield 0)
                                                     (f (- padding-left 1))))))) padding-length)
-                                (yield (>> message-length word-length))
-                                (yield (bit-and message-length (bit-not (<< -1 word-length))))
+                                (yield (>> (* word-length message-length) word-length))
+                                (yield (bit-and (* word-length message-length) (bit-not (<< -1 word-length))))
                                 ())))))
            (pad-word-list
-                 (lambda (word-list)
-                    (append word-list (generate-padding (count word-list))))))
+                (lambda (word-list)
+                    (append word-list (generate-padding (count word-list)))))
+           (f0-19
+                (lambda (b c d)
+                    (bit-or (bit-and b c) (bit-and (bit-not b) d))))
+           (f20-39
+                (lambda (b c d)
+                    (bit-xor b (bit-xor c d))))
+           (f40-59
+                (lambda (b c d)
+                    (bit-or (bit-and b c) (bit-or (bit-and b d) (bit-and c d)))))
+           (f60-79
+                f20-39)
+           (f-combination
+                (lambda (t b c d)
+                    (cond
+                        (((and (<= 0 t) (<= t 19))
+                            (f0-19 b c d))
+                         ((and (<= 20 t) (<= t 39))
+                            (f20-39 b c d))
+                         ((and (<= 40 t) (<= t 59))
+                            (f40-59 b c d))
+                         ((and (<= 60 t) (<= t 79))
+                            (f60-79 b c d))
+                         (#t (seq
+                                (print "Invalid t value passed to f-combination:")
+                                (debug t)
+                                (exit)))))))
+           (K-value
+                (lambda (t)
+                    (cond
+                        (((and (<= 0 t) (<= t 19))
+                            1518500249)
+                         ((and (<= 20 t) (<= t 39))
+                            1859775393)
+                         ((and (<= 40 t) (<= t 59))
+                            2400959708)
+                         ((and (<= 60 t) (<= t 79))
+                            3395469782)
+                         (#t (seq
+                                (print "Invalid t value passed to K-value:")
+                                (debug t)
+                                (exit)))))))
+           (initial-H-buffer
+                (lambda ()
+                    '(1732584193
+                      4023233417
+                      2562383102
+                      271733878
+                      3285377520)))
+           (W
+                (Y (lambda (f) 
+                    (lambda (block t cache)
+                        (let ((cache-result (cache t)))
+                            (if (!= cache-result ())
+                                (list cache-result cache)
+                                (let ((result
+                                    (if (< t 16)
+                                        (pick t block)
+                                        (let* ((Wt3 (pick 0 (f block (- t 3) cache)))
+                                               (Wt8 (pick 0 (f block (- t 8) cache)))
+                                               (Wt14 (pick 0 (f block (- t 14) cache)))
+                                               (Wt16 (pick 0 (f block (- t 16) cache)))
+                                               (combined (bit-xor (bit-xor Wt3 Wt8) (bit-xor Wt14 Wt16))))
+                                            (<<rb combined 1 word-length)))))
+                                    (list result (lambda (value) (if (= value t) result (cache value)))))))))))
+           (d-step
+                (lambda (block letter-buffer t W-cache)
+                    (let* ((A (pick 0 letter-buffer))
+                           (B (pick 1 letter-buffer))
+                           (C (pick 2 letter-buffer))
+                           (D (pick 3 letter-buffer))
+                           (E (pick 4 letter-buffer))
+                           (A-shift (<<rb A 5 word-length))
+                           (f-result (f-combination t B C D))
+                           (W-pair (W block t W-cache))
+                           (W-result (pick 0 W-pair))
+                           (new-W-cache (pick 1 W-pair))
+                           (K (K-value t))
+                           (temp (+ A-shift (+ f-result (+ E (+ W-result K))))))
+                          (list (list temp A (<<rb B 30 word-length) C D) new-W-cache))))
+           (d-loop
+                (lambda (block H-buffer)
+                    ((Y (lambda (f)
+                        (lambda (block letter-buffer t W-cache)
+                            (seq (debug t)(if (= 80 t)
+                                letter-buffer
+                                (let* ((d-step-pair (d-step block letter-buffer t W-cache))
+                                       (d-step-result (pick 0 d-step-pair))
+                                       (new-W-cache (pick 1 d-step-pair)))
+                                    (f block d-step-result (+ 1 t) new-W-cache))))))) block H-buffer 0 (lambda (value) ()))))
+           (limit-bits-add
+                (lambda (lhs rhs bit-limit)
+                    (let ((mask (bit-not (<< -1 bit-limit)))
+                          (sum (+ lhs rhs)))
+                        (bit-and sum mask))))
+           (process-block
+                (lambda (block H-buffer)
+                    (let* ((result-letter-buffer (d-loop block H-buffer))
+                           (zipped (zip H-buffer result-letter-buffer)))
+                        (map (lambda (pair) (limit-bits-add (pick 0 pair) (pick 1 pair) word-length)) zipped))))
+           (process-all-blocks
+                (lambda (word-list)
+                    ((Y (lambda (f)
+                        (lambda (word-list H-buffer)
+                            (if (nil? word-list)
+                                H-buffer
+                                (let* ((block (take words-in-block word-list))
+                                       (rest (drop words-in-block word-list))
+                                       (new-H-buffer (process-block block H-buffer)))
+                                    (f rest new-H-buffer)))))) word-list (initial-H-buffer))))
+           (SHA1
+                (lambda (number-list)
+                    (let ((padded-list (pad-word-list number-list)))
+                        (process-all-blocks padded-list)))))
     `(
         (pad-word-list ,pad-word-list)
+        (SHA1 ,SHA1)
      )
 )))
-                        
+
